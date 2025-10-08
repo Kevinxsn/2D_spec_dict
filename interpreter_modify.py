@@ -6,6 +6,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from altair import sequence
 from scipy.spatial import cKDTree
+import re
+
+def extract_parentheses_suffix(s: str):
+    """
+    If the string ends with (...) — parentheses enclosing any content — 
+    return the content inside. Otherwise, return False.
+    """
+    match = re.search(r"\(([^()]*)\)$", s)
+    if match:
+        return match.group(1)
+    else:
+        return False
+
 
 peptide_table = {
 #This is a table relating all peptide prefix names to their corresponding sequences. This is necessary simply because
@@ -86,6 +99,8 @@ define = {
           '.': 227.02523}
 
 
+adding = {'NH2': 16.01872, 'H2O': 18.01056}
+
 #The following are dictionaries of neutral loss for various amino acids or modifications. The dictionaries consist of
 #the loss as the key, and its monoisotopic mass as the value. The main reason for this interpretation program is to be
 #able to create a new neutral loss simply by adding it to an existing dictionary or by creating a new dictionary. All
@@ -121,6 +136,7 @@ losses_dictionary = {'M': M_neutral_losses, 'R': R_neutral_losses, 'D': D_neutra
 def adjust_peptide(peptide_input):
     #This function finds modifications a peptide sequence and replaces them with the character that corresponds to its
     #neutral losses dictionary as found in losses_dictionary as well as its mono mass in define.
+    peptide_input = peptide_input.replace(' ','')
     peptide_input = peptide_input.replace('K(Ac)', '1')
     peptide_input = peptide_input.replace('R(Me2)', '2')
     peptide_input = peptide_input.replace('Y(p)', '3')
@@ -141,8 +157,12 @@ def adjust_peptide(peptide_input):
     peptide_input = peptide_input.replace('C(SO3H)', ':')
     peptide_input = peptide_input.replace('Y(SO3H)', '.')
     #peptide_input = peptide_input.replace('(NH2)', '8')
-
-    return peptide_input
+    ending = extract_parentheses_suffix(peptide_input)
+    if ending:
+        peptide_input = peptide_input.replace('(' + ending + ')', '')
+    
+    
+    return peptide_input, ending
 
 def combine_dicts(d1, d2):
     #This function takes two neutral loss dictionaries and produces one single dictionary with all possible neutral loss
@@ -179,11 +199,17 @@ def create_all_possible_neutral_loss_combinations(ion_1, ion_2, charge_1, charge
 
     return pairs
 
-def all_pairs(sequence, charge, sequence_mono_array):
+def all_pairs(sequence, ending, charge, sequence_mono_array):
     #This is the main function which produces all possible types of ion pairs including neutral losses that may be possible
     #due to a residue or modification being present in an ion. In this code, I have only included b ions, b internal ions
     # a ions, a internal ions and y ions, however adding new possible pairs amounts to copying and pasting existing code
     # and simply adjusting masses and names
+    
+    if ending == False:
+        ending = adding['H2O']
+    else:
+        ending = adding[ending]
+    
     all_pairs = []
     for i in range(0,len(sequence)):
         for j in range(0,len(sequence)-i-1): # range of j makes sure there can be no overlaps - i.e no b,y ions cross over
@@ -203,7 +229,8 @@ def all_pairs(sequence, charge, sequence_mono_array):
 
                         y_ion = 'y' + str(j+1)
                         y_seq = sequence[-j-1:]
-                        y_mass = sum(sequence_mono_array[-j-1:]) + 18.01056
+                        #y_mass = sum(sequence_mono_array[-j-1:]) + 18.01056
+                        y_mass = sum(sequence_mono_array[-j-1:]) + ending
                         y_dict = create_combined_dict_from_sequence(y_seq)
 
                         all_pairs = all_pairs + create_all_possible_neutral_loss_combinations(b_ion, y_ion,
@@ -596,7 +623,7 @@ def report_from_dataframe(df_pairs,
     return df_indexed
 
 
-def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8):
+def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_original = False):
     
     
     ## df_pairs: dataframe with m/z A, m/z B column
@@ -604,12 +631,17 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8):
     ## charge: charge of the peptide
     
     peptide_input = adjust_peptide(input_sequence)
-    peptide_list = list(peptide_input)
+    peptide_list = list(peptide_input[0])
     peptide = []
     for item in peptide_list:
         peptide.append(define[item])
-    sequence_pairs = all_pairs(peptide_input, charge, peptide)
+    sequence_pairs = all_pairs(peptide_input[0], peptide_input[1], charge, peptide)
     df_result = report_from_dataframe(df_pairs, sequence_pairs, tolerance=tolerance_input)
+    
+    if merge_original:
+        merged = pd.merge(df_pairs, df_result, on=['m/z A', 'm/z B'], how='outer')
+        return merged[['each_original_data', 'm/z A', 'm/z B', 'Interpretation A', 'Interpretation B', 'CorrelationScore', 'NormalisedScore', 'MassDeviation']]
+    
     return df_result
     
 
