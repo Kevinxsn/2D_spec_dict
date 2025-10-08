@@ -154,6 +154,7 @@ def adjust_peptide(peptide_input):
     peptide_input = peptide_input.replace('Nle', 'L')
     peptide_input = peptide_input.replace('-Nle-', 'L')
     peptide_input = peptide_input.replace('pT', '9')
+    peptide_input = peptide_input.replace('T(p)', '9')
     peptide_input = peptide_input.replace('pS', ';')
     peptide_input = peptide_input.replace('C(SO3H)', ':')
     peptide_input = peptide_input.replace('Y(SO3H)', '.')
@@ -648,8 +649,9 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_ori
 
 
 if __name__ == "__main__":
-    pep_seq = 'GGNFSGR(Me)GGFGGSR'
-    df = pd.read_csv('data/data_table/data_sheet1.csv')
+    pep_seq = 'TWT(p)LCGTVEY'
+    data = 7
+    df = pd.read_csv(f'data/data_table/data_sheet{data}.csv')
     charge = 2
     
     df_mass = df[['each_original_data', 'mass1', 'mass2']]
@@ -657,5 +659,5 @@ if __name__ == "__main__":
     df_mass_clean.columns = ['each_original_data', 'm/z A', 'm/z B']
     df_result = report_data(df_mass_clean, pep_seq, charge, tolerance_input=1, merge_original=True)
     print(df_result.head(30))
-    df_result.to_csv('data/annotation/data1.csv')
+    df_result.to_csv(f'data/annotation/data{data}.csv')
 
