@@ -650,7 +650,7 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_ori
 if __name__ == "__main__":
     pep_seq = 'GGNFSGR(Me)GGFGGSR'
     df = pd.read_csv('data/data_table/data_sheet1.csv')
-    charge = 3
+    charge = 2
     
     df_mass = df[['each_original_data', 'mass1', 'mass2']]
     df_mass_clean = df_mass.dropna()
