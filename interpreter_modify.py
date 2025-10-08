@@ -148,6 +148,7 @@ def adjust_peptide(peptide_input):
 
     # 19/09/2025
     #peptide_input = peptide_input.replace('(nitro)Y', '6')
+    peptide_input = peptide_input.replace('Y(nitro)', '6')
     #peptide_input = peptide_input.replace('K(Me)3', '7')
     peptide_input = peptide_input.replace('pY', '3')
     #peptide_input = peptide_input.replace('-NH2', '8')
@@ -649,10 +650,10 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_ori
 
 
 if __name__ == "__main__":
-    pep_seq = 'TWT(p)LCGTVEY'
-    data = 7
+    pep_seq = 'LGEY(nitro)GFQNAILVR'
+    data = 6
     df = pd.read_csv(f'data/data_table/data_sheet{data}.csv')
-    charge = 2
+    charge = 3
     
     df_mass = df[['each_original_data', 'mass1', 'mass2']]
     df_mass_clean = df_mass.dropna()
