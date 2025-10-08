@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from altair import sequence
 from scipy.spatial import cKDTree
 import re
+import peptide
 
 def extract_parentheses_suffix(s: str):
     """
@@ -647,65 +648,14 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_ori
 
 
 if __name__ == "__main__":
-    #report('7255_2d-PC-MS_10pmol-ul_1AGC_0-7quadiso_CID10000')
-    # '20160318_1424_SU5_2+_CVScan_Turbo',
-    # '20160318_1809_PH4_2+_CVScan_Turbo',
-    # '20160503_1127_PH4_3+_CVscan_NCE35_Turbo', - -NH2
-    '''datafile_list = [#'20160428_2100_ME16_3+_CVscan_NCE35_Turbo',
-                     '20160428_2222_ME16_2+_CVScan_NCE35_Turbo',
-                     '20160503_1649_ME4_2+_CVscan_NCE35_Turbo',
-                     '20160504_0930_ME4_3+_CVscan_NCE35_Turbo',
-                     '20160511_2003_ME17_2+_CVscan_Turbo',
-                     '20160511_2120_ME17_3+_CVscan_Turbo',
-                     '20160602_1158_ME8_2+_CVscan_NCE35_Turbo_isoWidth2',
-                     '20160602_1249_ME8_3+_CVscan_NCE35_Turbo',
-                     '20160603_1005_ME9_2+_CVscan_NCE35_Turbo',
-                     #'20160603_1040_ME9_3+_CVscan_NCE35_Turbo',
-                     '20160622_1448_ME14_2+_1to2500_CVscan_NCE35',
-                     '20160622_1514_ME14_3+_1to2500_CVscan_NCE35',
-                     '20160629_1557_ME15_2+_CVscan_NCE25',
-                     '20160629_1625_ME15_2+_CVscan_NCE35',
-                     '20160629_1738_ME15_3+_CVscan_NCE35',
-                     '20160708_1747_UN14_2+_0,01mM_CVscan_Turbo',
-                     '20160708_1939_UN15_2+_0,01mM_CVscan_Turbo']'''
-
-    '''datafile_list = [#'3510_2d-PC-MS_0.25pmol-ul_1AGC_0-7quadiso_CID',
-                     '6727_2D-MS-PC_turbo_CID',
-                     '6727_2d-PC-MS_1pmol-ul_1AGC_0-7quadiso_HCD',
-                     '7255_2d-PC-MS_10pmol-ul_1AGC_0-7quadiso_CID',
-                     '7255_2D-PC-MS_10pmol-ul_1AGC_0-7quadiso_HCD',
-                     '7302_2D-MS-PC_turbo_CID',
-                     '7302_2D-PC-MS_1pmol-ul_1AGC_0-7quadiso_HCD',
-                     '7732_2D-MS-PC_turbo_CID']#,
-                     #'7732_2D-PC-MS_5pmol-ul_1AGC_0-7quadiso_HCD']'''
-
-    datafile_list = ['20150626_1623_PH15_2+_CID_NCE_10_CVscan_scanTime60mins']
-    for prefix in datafile_list:
-
-        data = extract_prefix_and_charge(prefix)
-        peptide_input = peptide_table[data[0]]  # peptide_table[prefix[0:4]]
-        peptide_input = adjust_peptide(peptide_input)
-        charge_input = int(data[1])
-        peptide_list = list(peptide_input)  # list of amino acids in peptide
-
-        peptide = []  # creates list of mono masses for each amino acid in peptide
-        for item in peptide_list:
-            peptide.append(define[item])
-
-        sequence_pairs = all_pairs(peptide_input, charge_input, peptide)
-        print("All pairs calculated!")
-
-        #The following is example code for a convergence calculation where report() is called for a prefix/sequence at
-        # number of scans ranging from 100 to 20000. All possible pairs are calculated first (sequence_pairs) to be
-        # efficient and not calculate it a new every time.
-
-        for i in range(100,1100, 100):
-            report(prefix+str(i), sequence_pairs)
-            print(prefix+str(i) + ":" + "DONE!")
-        for i in range(1100,2000, 100):
-            report(prefix+str(i), sequence_pairs)
-            print(prefix+str(i) + ":" + "DONE!")
-        for i in range(2000,21000, 1000):
-            report(prefix+str(i), sequence_pairs)
-            print(prefix+str(i) + ":" + "DONE!")
+    pep_seq = 'GGNFSGR(Me)GGFGGSR'
+    df = pd.read_csv('data/data_table/data_sheet1.csv')
+    charge = 3
+    
+    df_mass = df[['each_original_data', 'mass1', 'mass2']]
+    df_mass_clean = df_mass.dropna()
+    df_mass_clean.columns = ['each_original_data', 'm/z A', 'm/z B']
+    df_result = report_data(df_mass_clean, pep_seq, charge, tolerance_input=1, merge_original=True)
+    print(df_result.head(30))
+    df_result.to_csv('data/annotation/data1.csv')
 
