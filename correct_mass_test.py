@@ -1,3 +1,5 @@
+#This code try to caculate the correct mass for a given ion and a peptide, calculating different combinations(1m1+2m2 ect.)
+
 import numpy as np
 import pandas as pd
 import re
@@ -5,9 +7,10 @@ import peptide
 import neutral_loss_mass
 import matplotlib.pyplot as plt
 import seaborn as sns
-from clustering import find_mass_clusters
+#from clustering import find_mass_clusters
+from clustering import find_mass_clusters_with_labels
 
-data_number = 7
+data_number = 1
 
 with open(f'data/data{data_number}.txt', 'r', encoding='utf-8') as file:
     content = file.read()
@@ -247,17 +250,28 @@ df[['chosen_sum_from', 'chosen_sum']] = df.apply(
     choose_sum, axis=1, result_type='expand'
 )
 
-print(df)
-df.to_csv(f'data/data_table/data_sheet{data_number}.csv')
 
 
 cluster_data = np.array(df['chosen_sum'])
 cluster_data = cluster_data[np.isfinite(cluster_data)]
 
+eps = 0.8
+'''
 cluster_df = find_mass_clusters(
+    
     mass_sums=cluster_data,
-    actual_peptide_mass=entire_pep_seq_mass
+    actual_peptide_mass=entire_pep_seq_mass,
+    eps=eps
+)
+'''
+cluster_summary, df_with_labels = find_mass_clusters_with_labels(
+    df,
+    actual_peptide_mass=entire_pep_seq_mass,
+    eps=eps
 )
 
-print(cluster_df)
-cluster_df.to_csv(f'data/cluster/data_cluster{data_number}.csv')
+print(df_with_labels)
+df_with_labels.to_csv(f'data/data_table/data_sheet{data_number}.csv')
+
+print(cluster_summary)
+cluster_summary.to_csv(f'data/cluster/data_cluster{data_number}.csv')

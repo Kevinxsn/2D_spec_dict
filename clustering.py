@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.cluster import DBSCAN
 import peptide
 
+'''
 def find_mass_clusters(mass_sums, actual_peptide_mass, eps=0.5, min_samples=2):
     """
     Identifies all mass clusters in a single pass and calculates their
@@ -58,6 +59,60 @@ def find_mass_clusters(mass_sums, actual_peptide_mass, eps=0.5, min_samples=2):
         return pd.DataFrame()
 
     return pd.DataFrame(results)
+    
+'''
+
+
+def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples=2):
+    """
+    Identifies all mass clusters and appends cluster labels to the original dataframe.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing 'chosen_sum' column.
+        actual_peptide_mass (float): The known peptide mass for comparison.
+        eps (float): Tolerance for clustering (in Da).
+        min_samples (int): Minimum number of samples to form a cluster.
+
+    Returns:
+        cluster_summary (pd.DataFrame): Summary of cluster stats.
+        df_with_labels (pd.DataFrame): Original df with new 'Cluster ID' column.
+    """
+
+    # Extract chosen_sum and drop NaNs
+    cluster_data = df['chosen_sum'].to_numpy()
+    mask = np.isfinite(cluster_data)
+    X = cluster_data[mask].reshape(-1, 1)
+
+    # Run DBSCAN
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+    labels = db.labels_
+
+    # Add cluster labels back into original df
+    df = df.copy()
+    df['Cluster ID'] = np.nan
+    df.loc[mask, 'Cluster ID'] = labels
+    df['Cluster ID'] = df['Cluster ID'].astype('Int64')  # keep -1 for noise
+
+    # Print cluster summary
+    unique_labels = sorted(set(labels) - {-1})
+    print(f"Found {len(unique_labels)} cluster(s) and {np.sum(labels == -1)} noise points.")
+
+    # Summarize each cluster
+    results = []
+    for cluster_id in unique_labels:
+        points = X[labels == cluster_id]
+        cluster_size = len(points)
+        median_mass = np.median(points)
+        mass_diff = median_mass - actual_peptide_mass
+        results.append({
+            'Cluster ID': cluster_id,
+            'Cluster Size': cluster_size,
+            'Median Mass (Da)': median_mass,
+            'Difference from Actual Mass (Da)': mass_diff
+        })
+
+    cluster_summary = pd.DataFrame(results)
+    return cluster_summary, df
 
 # --- Example Usage ---
 '''

@@ -30,6 +30,7 @@ def ion_data_organizer_d(df, seq):
         if (
                 
                 each_row['loss1_m'] in df_generate.index
+                and isinstance(each_row['ion1'], str)
                 and isinstance(each_row['charge1'], str)
                 and isinstance(each_row['charge2'], str)
                 and (
@@ -359,7 +360,7 @@ neutral_loss_colors = {
 }
 
 
-for num in range(1,7):
+for num in [7]:
     the_list = []
     the_y_list = []
     data_loc = f'data/data{num}.txt'
@@ -369,6 +370,9 @@ for num in range(1,7):
     peptide_header = lines[0]
     peptide_header
     the_df = pd.read_csv(f'data/data_table/data_sheet{num}.csv')
+    #print(the_df)
+    #the_df = the_df.dropna()
+    #print(the_df)
     df_x = ion_data_organizer_d(the_df, peptide_header)
     df_y = ion_data_organizer_y(the_df, peptide_header)
     the_length = len(peptide.Pep(peptide_header).AA_array)

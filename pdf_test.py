@@ -14,8 +14,15 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 import peptide
 from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
+    
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-the_number = 4
+
+
+the_number = 6
 data_number = f'data{the_number}'
 df_whole = pd.read_csv(f'data/data_table/data_sheet{the_number}.csv')
 
@@ -267,11 +274,114 @@ def create_report_with_reportlab(pdf_path, image_path, select_data_frame):
     print(f"Successfully created '{pdf_path}' with reportlab")
     print(f"Successfully created '{pdf_path}'")
 
-selected_df = merged_data[['n','classification', 'line', 'mass1', 'correct_mass1', 'mass2', 'correct_mass2', 'm1+m2', '2m1+m2', 'm1+2m2', 'chosen_sum']]
+
+
+    
+    
+    
+def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames):
+    """
+    Generates a PDF report with multiple graphs and tables stacked vertically.
+
+    Args:
+        pdf_path (str): The file path for the output PDF.
+        peptide_header (str): The main title for the report.
+        image_paths (list): A list of file paths for the graph images.
+        data_frames (list): A list of pandas DataFrames to be converted to tables.
+    """
+    # 1. SETUP THE DOCUMENT
+    doc = SimpleDocTemplate(pdf_path, pagesize=landscape(letter),
+                            rightMargin=inch * 0.3, leftMargin=inch*0.3,
+                            topMargin=inch, bottomMargin=inch)
+    
+    story = []
+    styles = getSampleStyleSheet()
+
+    # 2. ADD TITLE
+    title = Paragraph(peptide_header, styles['h1'])
+    story.append(title)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # 3. ADD GRAPHS (LOOPING THROUGH THE LIST)
+    # The drawable width of the page (11 inches wide - 2 inches of margin)
+    drawable_width = landscape(letter)[0] - 2 * inch
+    for image_path in image_paths:
+        img = Image(image_path, width=drawable_width, height=drawable_width / 2.5) # Maintain aspect ratio
+        story.append(img)
+        story.append(Spacer(1, 0.2 * inch))
+
+    # 4. ADD DATA TABLES (LOOPING THROUGH THE LIST)
+    # Define a reusable table style
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F81BD')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#DCE6F1')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('LEADING', (0, 0), (-1, -1), 10),
+    ])
+
+    for i, df in enumerate(data_frames):
+        # Add a sub-header for each table
+        story.append(Paragraph(f"Detailed Data - Table {i+1}", styles['h2']))
+        story.append(Spacer(1, 0.1 * inch))
+
+        # Convert dataframe to a list of lists
+        table_data = [df.columns.values.tolist()] + df.values.tolist()
+        
+        # Create and style the Table object
+        report_table = Table(table_data)
+        report_table.setStyle(table_style)
+
+        # Add the styled table to the story
+        story.append(report_table)
+        story.append(Spacer(1, 0.3 * inch)) # Add extra space after each table
+
+    # 5. BUILD THE PDF
+    doc.build(story)
+    print(f"Successfully created '{pdf_path}'")
+    
+
+
+selected_df = merged_data[['n','classification', 'line', 'mass1', 'correct_mass1', 'mass2', 'correct_mass2', 'chosen_sum', 'Cluster ID']]
 selected_df = selected_df.round(2)
 
-create_report_with_reportlab(
-    pdf_path=f'data/pdf/{data_number}_addition.pdf',
+'''
+create_report_with_reportlab_2(
+    pdf_path=f'data/pdf/{data_number}_addition_ion.pdf',
     image_path=graph_path,
     select_data_frame=selected_df
     )
+'''
+img1_path = graph_path
+img2_path = f'data/graph_ion/graph_ion_{the_number}.png'
+
+df1 = pd.read_csv(f'data/data_table_ion/data_ion_b_{the_number}.csv')
+df2 = pd.read_csv(f'data/data_table_ion/data_ion_y_{the_number}.csv')
+df3 = selected_df
+
+'''
+create_report_with_reportlab2(
+    pdf_path="output.pdf",
+    peptide_header=seq,
+    image_paths=[img1_path, img2_path],
+    dataframes=[df1, df2, df3],
+    dataframe_titles=["Detailed Data (1)", "Detailed Data (2)", "Detailed Data (3)"],
+    image_aspect_ratio=2.0,           # matches your original 2:1 layout
+    add_pagebreak_between_sections=False
+)
+'''
+
+list_of_image_paths = [img1_path, img2_path]
+list_of_dataframes = [df1, df2, df3]
+
+create_multi_item_report(
+    pdf_path=f'data/pdf/with_ion{the_number}.pdf',
+    peptide_header='output',
+    image_paths=list_of_image_paths,
+    data_frames=list_of_dataframes
+)
