@@ -20,6 +20,8 @@ def ion_data_organizer_d(df, seq):
             loss_include[i] = 'No Loss'
     df['loss1_m'] = df['loss1'].fillna('No Loss')
     df['loss2_m'] = df['loss2'].fillna('No Loss')
+
+
     pep = peptide.Pep(seq)
     pep_len = len(pep.AA_array)
     ion_list = [f'b{i}' for i in range(1, pep_len+1)]
@@ -91,6 +93,10 @@ def ion_data_organizer_y(df, seq):
             loss_include[i] = 'No Loss'
     df['loss1_m'] = df['loss1'].fillna('No Loss')
     df['loss2_m'] = df['loss2'].fillna('No Loss')
+    
+
+    
+    
     pep = peptide.Pep(seq)
     pep_len = len(pep.AA_array)
     ion_list = [f'y{i}' for i in range(1, pep_len+1)]
@@ -293,8 +299,13 @@ def create_annotation_list_from_df(df, peptide_length, color_map):
     default_color = 'black'
 
     for loss_type, row in df.iterrows():
+        
+        
+        
         color = color_map.get(loss_type, default_color)
         for ion_name, cell_value in row.items():
+            
+            
             if pd.notna(cell_value) and isinstance(cell_value, str):
                 # --- MODIFIED: Extract a more detailed, specific label ---
                 # This regex looks for a pattern like: y3 (-0.32) (1, 1) or b5-NH3-H2O (-0.06) (1, 1)
@@ -360,7 +371,7 @@ neutral_loss_colors = {
 }
 
 
-for num in [7]:
+for num in [1]:
     the_list = []
     the_y_list = []
     data_loc = f'data/data{num}.txt'
@@ -375,12 +386,15 @@ for num in [7]:
     #print(the_df)
     df_x = ion_data_organizer_d(the_df, peptide_header)
     df_y = ion_data_organizer_y(the_df, peptide_header)
+    print(df_x)
+    print(df_y)
+    
     the_length = len(peptide.Pep(peptide_header).AA_array)
     b_list = create_annotation_list_from_df(df_x, the_length, neutral_loss_colors)
     y_list = create_annotation_list_from_df(df_y, the_length, neutral_loss_colors)
     df_x.to_csv(f'data/data_table_ion/data_ion_b_{num}.csv')
     df_y.to_csv(f'data/data_table_ion/data_ion_y_{num}.csv')
 
-    save_graph_path = f'data/graph_ion/graph_ion_{num}.png'
+    save_graph_path = f'data/graph_ion/graph_ion_{num}_revised1.png'
 
     plot_peptide_fragmentation(peptide.Pep(peptide_header).seq, annotations=b_list, y_line_annotations = y_list, color_map=neutral_loss_colors, save_path = save_graph_path, show=False)

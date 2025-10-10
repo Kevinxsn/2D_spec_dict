@@ -10,7 +10,7 @@ import seaborn as sns
 #from clustering import find_mass_clusters
 from clustering import find_mass_clusters_with_labels
 
-data_number = 1
+data_number = 7
 
 with open(f'data/data{data_number}.txt', 'r', encoding='utf-8') as file:
     content = file.read()
@@ -252,26 +252,65 @@ df[['chosen_sum_from', 'chosen_sum']] = df.apply(
 
 
 
+
+## loop over different eps
+
+#print(df)
+
+
+'''
+df_shorten = df[['each_original_data', 'chosen_sum_from', 'chosen_sum']]
+
+with open(f"data/cluster/cluster_results_{data_number}_eps0.1-1.txt", "w") as f:  # "w" overwrites, use "a" to append to an existing file
+    for eps in np.arange(0.1, 1.1, 0.1):
+        result_sum, cluster_summary, df_shorten = find_mass_clusters_with_labels(
+            df_shorten,
+            actual_peptide_mass=entire_pep_seq_mass,
+            eps=eps,
+            result_t=True
+        )
+
+        f.write(f"=== EPS = {eps:.2f} ===\n")
+        f.write(result_sum)
+        f.write('\n')
+        f.write(cluster_summary.to_string(index=False))
+        f.write("\n\n")  # add spacing between runs
+    df_shorten.to_csv(f'data/cluster/data_cluster_ranging0.1-1{data_number}.csv')
+
+'''
+
+
+
+
 cluster_data = np.array(df['chosen_sum'])
 cluster_data = cluster_data[np.isfinite(cluster_data)]
 
 eps = 0.8
 '''
-cluster_df = find_mass_clusters(
+
+#cluster_df = find_mass_clusters(
     
-    mass_sums=cluster_data,
-    actual_peptide_mass=entire_pep_seq_mass,
-    eps=eps
-)
+#    mass_sums=cluster_data,
+#    actual_peptide_mass=entire_pep_seq_mass,
+#    eps=eps
+#)
 '''
-cluster_summary, df_with_labels = find_mass_clusters_with_labels(
-    df,
-    actual_peptide_mass=entire_pep_seq_mass,
-    eps=eps
-)
+
+df_with_labels = df.copy()
+
+for eps in np.arange(0.1, 1.1, 0.1):
+
+    cluster_summary, df_with_labels = find_mass_clusters_with_labels(
+        df_with_labels,
+        actual_peptide_mass=entire_pep_seq_mass,
+        eps=eps,
+        result_t=False
+    )
 
 print(df_with_labels)
 df_with_labels.to_csv(f'data/data_table/data_sheet{data_number}.csv')
 
 print(cluster_summary)
 cluster_summary.to_csv(f'data/cluster/data_cluster{data_number}.csv')
+
+

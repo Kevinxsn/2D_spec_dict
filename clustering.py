@@ -63,7 +63,7 @@ def find_mass_clusters(mass_sums, actual_peptide_mass, eps=0.5, min_samples=2):
 '''
 
 
-def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples=2):
+def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples=2, result_t=False):
     """
     Identifies all mass clusters and appends cluster labels to the original dataframe.
 
@@ -72,6 +72,8 @@ def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples
         actual_peptide_mass (float): The known peptide mass for comparison.
         eps (float): Tolerance for clustering (in Da).
         min_samples (int): Minimum number of samples to form a cluster.
+        result_t: also return the reuslt text of the summary of the clustering. 
+        
 
     Returns:
         cluster_summary (pd.DataFrame): Summary of cluster stats.
@@ -89,13 +91,14 @@ def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples
 
     # Add cluster labels back into original df
     df = df.copy()
-    df['Cluster ID'] = np.nan
-    df.loc[mask, 'Cluster ID'] = labels
-    df['Cluster ID'] = df['Cluster ID'].astype('Int64')  # keep -1 for noise
+    df[f'Cluster ID eps_{round(eps,2)}'] = np.nan
+    df.loc[mask, f'Cluster ID eps_{round(eps,2)}'] = labels
+    df[f'Cluster ID eps_{round(eps,2)}'] = df[f'Cluster ID eps_{round(eps,2)}'].astype('Int64')  # keep -1 for noise
 
     # Print cluster summary
     unique_labels = sorted(set(labels) - {-1})
-    print(f"Found {len(unique_labels)} cluster(s) and {np.sum(labels == -1)} noise points.")
+    print(f"Found {len(unique_labels)} cluster(s) and {np.sum(labels == -1)} noise points with eps={round(eps,2)}")
+    result_text = f"Found {len(unique_labels)} cluster(s) and {np.sum(labels == -1)} noise points with eps={round(eps,2)}"
 
     # Summarize each cluster
     results = []
@@ -112,7 +115,11 @@ def find_mass_clusters_with_labels(df, actual_peptide_mass, eps=0.5, min_samples
         })
 
     cluster_summary = pd.DataFrame(results)
-    return cluster_summary, df
+    if result_t:
+        return result_text, cluster_summary, df
+    else:
+        return cluster_summary, df
+    
 
 # --- Example Usage ---
 '''

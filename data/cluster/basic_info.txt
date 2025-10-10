@@ -1,0 +1,24 @@
+the AA array with modification of this peptide is  [G, G, N, F, S, G, R(Me), G, G, F, G, G, S, R]
+Found 4 cluster(s) and 40 noise points with eps=0.1
+Found 6 cluster(s) and 33 noise points with eps=0.2
+Found 8 cluster(s) and 27 noise points with eps=0.3
+Found 8 cluster(s) and 26 noise points with eps=0.4
+Found 9 cluster(s) and 24 noise points with eps=0.5
+Found 9 cluster(s) and 22 noise points with eps=0.6
+Found 8 cluster(s) and 20 noise points with eps=0.7
+Found 8 cluster(s) and 20 noise points with eps=0.8
+Found 8 cluster(s) and 18 noise points with eps=0.9
+Found 8 cluster(s) and 18 noise points with eps=1.0
+
+the AA array with modification of this peptide is  [G, G, N, F, S, G, R(Me), G, G, F, G, G, S, R]
+Found 9 cluster(s) and 17 noise points with eps=0.1
+Found 9 cluster(s) and 17 noise points with eps=0.2
+Found 9 cluster(s) and 17 noise points with eps=0.3
+Found 6 cluster(s) and 10 noise points with eps=0.4
+Found 6 cluster(s) and 10 noise points with eps=0.5
+Found 6 cluster(s) and 10 noise points with eps=0.6
+Found 6 cluster(s) and 8 noise points with eps=0.7
+Found 6 cluster(s) and 8 noise points with eps=0.8
+Found 6 cluster(s) and 8 noise points with eps=0.9
+Found 6 cluster(s) and 6 noise points with eps=1.0
+

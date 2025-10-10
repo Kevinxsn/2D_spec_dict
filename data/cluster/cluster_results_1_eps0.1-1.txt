@@ -1,0 +1,116 @@
+=== EPS = 0.10 ===
+Found 4 cluster(s) and 40 noise points with eps=0.1
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             2          1327.785                           0.16254
+          1             3          1310.640                         -16.98246
+          2             2          1262.275                         -65.34746
+          3             2          1327.455                          -0.16746
+
+=== EPS = 0.20 ===
+Found 6 cluster(s) and 33 noise points with eps=0.2
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             5          1327.630                           0.00754
+          1             3          1310.640                         -16.98246
+          2             2          1262.275                         -65.34746
+          3             2          1249.465                         -78.15746
+          4             2          1265.145                         -62.47746
+          5             2          1296.440                         -31.18246
+
+=== EPS = 0.30 ===
+Found 8 cluster(s) and 27 noise points with eps=0.3
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             4          1310.680                         -16.94246
+          2             2          1279.840                         -47.78246
+          3             2          1262.275                         -65.34746
+          4             2          1249.465                         -78.15746
+          5             2          1265.145                         -62.47746
+          6             2          1292.680                         -34.94246
+          7             2          1296.440                         -31.18246
+
+=== EPS = 0.40 ===
+Found 8 cluster(s) and 26 noise points with eps=0.4
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             5          1310.640                         -16.98246
+          2             2          1279.840                         -47.78246
+          3             2          1262.275                         -65.34746
+          4             2          1249.465                         -78.15746
+          5             2          1265.145                         -62.47746
+          6             2          1292.680                         -34.94246
+          7             2          1296.440                         -31.18246
+
+=== EPS = 0.50 ===
+Found 9 cluster(s) and 24 noise points with eps=0.5
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             5          1310.640                         -16.98246
+          2             2          1279.840                         -47.78246
+          3             2          1293.690                         -33.93246
+          4             2          1262.275                         -65.34746
+          5             2          1249.465                         -78.15746
+          6             2          1265.145                         -62.47746
+          7             2          1292.680                         -34.94246
+          8             2          1296.440                         -31.18246
+
+=== EPS = 0.60 ===
+Found 9 cluster(s) and 22 noise points with eps=0.6
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             6          1310.680                         -16.94246
+          2             2          1279.840                         -47.78246
+          3             2          1293.690                         -33.93246
+          4             3          1262.260                         -65.36246
+          5             2          1249.465                         -78.15746
+          6             2          1265.145                         -62.47746
+          7             2          1292.680                         -34.94246
+          8             2          1296.440                         -31.18246
+
+=== EPS = 0.70 ===
+Found 8 cluster(s) and 20 noise points with eps=0.7
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             6          1310.680                         -16.94246
+          2             2          1279.840                         -47.78246
+          3             5          1293.470                         -34.15246
+          4             3          1262.260                         -65.36246
+          5             2          1249.465                         -78.15746
+          6             3          1265.210                         -62.41246
+          7             2          1296.440                         -31.18246
+
+=== EPS = 0.80 ===
+Found 8 cluster(s) and 20 noise points with eps=0.8
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             6          1310.680                         -16.94246
+          2             2          1279.840                         -47.78246
+          3             5          1293.470                         -34.15246
+          4             3          1262.260                         -65.36246
+          5             2          1249.465                         -78.15746
+          6             3          1265.210                         -62.41246
+          7             2          1296.440                         -31.18246
+
+=== EPS = 0.90 ===
+Found 8 cluster(s) and 18 noise points with eps=0.9
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             6          1310.680                         -16.94246
+          2             3          1279.710                         -47.91246
+          3             5          1293.470                         -34.15246
+          4             4          1262.005                         -65.61746
+          5             2          1249.465                         -78.15746
+          6             3          1265.210                         -62.41246
+          7             2          1296.440                         -31.18246
+
+=== EPS = 1.00 ===
+Found 8 cluster(s) and 18 noise points with eps=1.0
+ Cluster ID  Cluster Size  Median Mass (Da)  Difference from Actual Mass (Da)
+          0             6          1327.690                           0.06754
+          1             6          1310.680                         -16.94246
+          2             3          1279.710                         -47.91246
+          3             5          1293.470                         -34.15246
+          4             4          1262.005                         -65.61746
+          5             2          1249.465                         -78.15746
+          6             3          1265.210                         -62.41246
+          7             2          1296.440                         -31.18246
+

@@ -22,7 +22,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 
 
-the_number = 6
+the_number = 7
 data_number = f'data{the_number}'
 df_whole = pd.read_csv(f'data/data_table/data_sheet{the_number}.csv')
 
@@ -318,10 +318,10 @@ def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames)
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#DCE6F1')),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('FONTSIZE', (0, 0), (-1, -1), 5.5),
         ('LEADING', (0, 0), (-1, -1), 10),
     ])
 
@@ -347,7 +347,7 @@ def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames)
     
 
 
-selected_df = merged_data[['n','classification', 'line', 'mass1', 'correct_mass1', 'mass2', 'correct_mass2', 'chosen_sum', 'Cluster ID']]
+selected_df = merged_data[['n','classification', 'line', 'mass1', 'correct_mass1', 'mass2', 'correct_mass2', 'chosen_sum', 'Cluster ID eps_1.0', 'Cluster ID eps_0.8', 'Cluster ID eps_0.6', 'Cluster ID eps_0.4']]
 selected_df = selected_df.round(2)
 
 '''
