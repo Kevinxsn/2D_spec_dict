@@ -1,11 +1,33 @@
+
+## This script help to generate the table graph that the row is the conserve line and the column is the combination of b and y ion. 
+
+
 import pandas as pd
 import numpy as np
 import re
+import peptide
+import dataframe_image as dfi
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
-df = pd.read_csv('data/data_table/data_sheet1.csv')
+num = 6
+
+df = pd.read_csv(f'data/data_table/data_sheet{num}.csv')
 df = df.rename(columns={'Unnamed: 0': 'ranking'})
 df = df[df.columns[:25]]
-the_length = 14
+
+rows = ['Parent','NH3','H2O', 'NH3 + H2O','H2O + NH3', 'a']
+
+the_list = []
+the_y_list = []
+data_loc = f'data/data{num}.txt'
+
+with open(data_loc, "r", encoding="utf-8") as f:
+    lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+peptide_header = lines[0]
+
+the_length = len(peptide.Pep(peptide_header).AA_array)
+
 
 
 # Optional: define a custom letter order; default is alphabetical a<...<z
@@ -93,7 +115,7 @@ def peptie_arrange(length):
         result.append(f'b{i}y{length - i}')
     return result
 
-rows = ['Parent','NH3','H2O', 'NH3 + H2O','H2O + NH3', 'a']
+#rows = ['Parent','NH3','H2O', 'NH3 + H2O','H2O + NH3', 'a']
 
 columns = peptie_arrange(the_length)
 df['loss_first_m'] = df['loss_first'].fillna('no loss')
@@ -113,4 +135,44 @@ for index, each_row in df.iterrows():
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
         f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + ' ' + f"({str(each_row['ranking'])})"
 reuslt_df = reuslt_df.fillna('--')
+
+reuslt_df['Count'] = (reuslt_df != '--').sum(axis=1)
+
 print(reuslt_df)
+
+
+index_labels = ['Parent', 'NH3', 'H2O', 'NH3 + H2O', 'H2O + NH3', 'a']
+
+
+# 2. Your dictionary mapping row index to color 🎨
+color_map = {
+    'Parent': '#7f7f7f',        # neutral gray
+    'H2O': '#1f77b4',            # blue (water)
+    '2(H2O)': '#aec7e8',         # lighter blue (double water)
+    'NH3': '#2ca02c',            # green (ammonia)
+    'NH3 + H2O': '#98df8a',        # lighter green (mixed loss)
+    'H2O + NH3': '#98df8a',        # same as above for symmetry
+    'CH3NH2': '#ff7f0e',         # orange (methylamine)
+    'CH3-NH2': '#ff7f0e',        # same as above (alternate notation)
+    'CH3NH2-NH3': '#ffbb78',     # light orange (combined loss)
+    'HCOH-H2O': '#8c564b',       # brown (formaldehyde + water)
+    'HN=C=N-CH3': '#9467bd',     # purple (complex nitrogen loss)
+    'HN=C=NH-2(H2O)': '#c5b0d5', # light lavender (related nitrogen loss)
+    'G': '#17becf',               # cyan (internal acid or glycine fragment)
+    'a': '#CD5C5C'
+
+}
+
+# 3. A function to apply the styles
+def color_rows(row):
+    # Get the color from the map based on the row's name (its index)
+    color = color_map.get(row.name, 'black') # Default to black if not found
+    # Return a style string for each cell in the row
+    return [f'color: {color}'] * len(row)
+
+styled_df = reuslt_df.style.apply(color_rows, axis=1)
+
+# 5. Export the STYLED DataFrame
+dfi.export(styled_df, f'data/conserve_line_pic/colored_table{num}.png')
+
+print("DataFrame has been saved as my_colored_table.png")
