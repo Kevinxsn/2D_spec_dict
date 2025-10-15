@@ -9,6 +9,7 @@ import peptide
 import dataframe_image as dfi
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from IPython.display import HTML
 
 num = 6
 
@@ -166,7 +167,8 @@ color_map = {
 
 
 
-
+html = reuslt_df.to_html('test.html')
+display(HTML(html))
 
 '''
 
