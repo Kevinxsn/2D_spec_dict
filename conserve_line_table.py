@@ -167,6 +167,7 @@ color_map = {
 
 
 
+
 '''
 
 # 3. A function to apply the styles
