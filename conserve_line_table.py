@@ -163,6 +163,12 @@ color_map = {
 
 }
 
+
+
+
+
+'''
+
 # 3. A function to apply the styles
 def color_rows(row):
     # Get the color from the map based on the row's name (its index)
@@ -176,3 +182,4 @@ styled_df = reuslt_df.style.apply(color_rows, axis=1)
 dfi.export(styled_df, f'data/conserve_line_pic/colored_table{num}.png')
 
 print("DataFrame has been saved as my_colored_table.png")
+'''
