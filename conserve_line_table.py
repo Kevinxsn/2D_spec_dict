@@ -10,6 +10,7 @@ import dataframe_image as dfi
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from IPython.display import HTML
+from html2image import Html2Image
 
 num = 6
 
@@ -166,9 +167,20 @@ color_map = {
 
 
 
+#reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
-html = reuslt_df.to_html('test.html')
-display(HTML(html))
+reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
+reuslt_df.to_html('test.html',escape=False)
+
+hti = Html2Image()
+
+# You can convert an HTML file directly
+hti.screenshot(html_file='test.html', save_as='output.png')
+
+
+
+
+
 
 '''
 

@@ -91,10 +91,11 @@ def ion_data_organizer_y(df, seq):
     for i in range(len(loss_include)):
         if type(loss_include[i]) == float:
             loss_include[i] = 'No Loss'
-    df['loss1_m'] = df['loss1'].fillna('No Loss')
-    df['loss2_m'] = df['loss2'].fillna('No Loss')
+    #df['loss1_m'] = df['loss1'].fillna('No Loss')
+    #df['loss2_m'] = df['loss2'].fillna('No Loss')
     
-
+    
+    
     
     
     pep = peptide.Pep(seq)
