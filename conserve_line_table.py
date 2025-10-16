@@ -120,8 +120,11 @@ def peptie_arrange(length):
 #rows = ['Parent','NH3','H2O', 'NH3 + H2O','H2O + NH3', 'a']
 
 columns = peptie_arrange(the_length)
-df['loss_first_m'] = df['loss_first'].fillna('no loss')
-df['loss_second_m'] = df['loss_second'].fillna('no loss')
+#df['loss_first_m'] = df['loss_first'].fillna('no loss')
+#df['loss_second_m'] = df['loss_second'].fillna('no loss')
+
+df['loss_first_m'] = df['loss_first'].fillna(df['ion_first']).fillna('undefined')
+df['loss_second_m'] = df['loss_second'].fillna(df['ion_second']).fillna('undefined')
 
 reuslt_df = pd.DataFrame(index=rows, columns=columns)
 
@@ -138,7 +141,14 @@ for index, each_row in df.iterrows():
         f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + ' ' + f"({str(each_row['ranking'])})"
 reuslt_df = reuslt_df.fillna('--')
 
-reuslt_df['Count'] = (reuslt_df != '--').sum(axis=1)
+reuslt_df['Row_Count'] = (reuslt_df != '--').sum(axis=1)
+
+# Count valid entries in each column
+reuslt_df.loc['Col_Count'] = (reuslt_df != '--').sum(axis=0)
+
+total_valid = reuslt_df['Row_Count'][:-1].sum()
+reuslt_df.loc['Col_Count', 'Row_Count'] = total_valid
+
 
 print(reuslt_df)
 
@@ -167,20 +177,66 @@ color_map = {
 
 
 
+# DOWN BELOW is the code to generate the color tale
+
 #reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
-reuslt_df.to_html('test.html',escape=False)
+#reuslt_df.to_html('test.html',escape=False)
+#hti = Html2Image()
+# You can convert an HTML file directly
+#hti.screenshot(html_file='test.html', save_as='output.png')
+
+
+
+df_display = reuslt_df.copy().astype(str)
+
+known_components = reuslt_df.index.tolist()
+
+def get_components(label_string):
+    """Uses regex to find all known components within a string."""
+    # Create a regex pattern like '(NH3|H2O|Parent|...)'
+    pattern = '|'.join(re.escape(c) for c in known_components if c.strip())
+    return re.findall(pattern, label_string)
+
+for row_index, row_series in reuslt_df.iterrows():
+    row_color = color_map.get(row_index)
+    if not row_color:
+        continue
+        
+    # Get the fundamental components for THIS row
+    components_to_color = get_components(row_index)
+    
+    # 💡 Sort by length (descending) to replace 'H2O+NH3' before 'H2O'
+    components_to_color.sort(key=len, reverse=True)
+    
+    current_row_data = df_display.loc[row_index]
+    for component in components_to_color:
+        replacement_html = f"<span style='color: {row_color}; font-weight: bold;'>{component}</span>"
+        current_row_data = current_row_data.str.replace(
+            component, replacement_html, regex=False
+        )
+    df_display.loc[row_index] = current_row_data
+        
+def color_index_series(index_labels_series):
+    return index_labels_series.map(
+        lambda label: f"color: {color_map.get(label, 'black')}; font-weight: bold;"
+    )
+
+# 5. Chain the styling methods and export
+styled_df = df_display.style.apply_index(color_index_series, axis="index") \
+                          .set_properties(**{
+                              'border': '1px solid black',
+                              'text-align': 'center'
+                          })
+
+html_output = styled_df.to_html(escape=False)
+with open(f"data/conserve_line_pic/colored_table_and_index{num}.html", "w") as f:
+    f.write(html_output)
 
 hti = Html2Image()
-
-# You can convert an HTML file directly
-hti.screenshot(html_file='test.html', save_as='output.png')
-
-
-
-
-
+hti.output_path = "data/conserve_line_pic"
+hti.screenshot(html_file=f"data/conserve_line_pic/colored_table_and_index{num}.html", save_as=f'colored_table_and_index{num}.png')
 
 '''
 
