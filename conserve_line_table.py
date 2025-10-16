@@ -12,7 +12,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from IPython.display import HTML
 from html2image import Html2Image
 
-num = 6
+num = 1
 
 df = pd.read_csv(f'data/data_table/data_sheet{num}.csv')
 df = df.rename(columns={'Unnamed: 0': 'ranking'})
@@ -100,6 +100,12 @@ def create_mass_conserve_line(row):
         combined_loss = 'a'
     elif (type(ion2) == str) and (ion2[0] == 'a' and ion2[:2] != 'ai') and (loss1 == '' and loss2 == ''):
         combined_loss = 'a'
+    
+    if (type(ion1) == str) and (ion1[0] == 'a' and ion1[:2] != 'ai'):
+        loss1 = 'a' + '+' + loss1 if loss1 != '' else 'a'
+        
+    if (type(ion2) == str) and (ion2[0] == 'a' and ion2[:2] != 'ai'):
+        loss2 = 'a' + '+' + loss2 if loss2 != '' else 'a'
         
     elif loss1 != '' and loss2 != '':
         combined_loss = loss1 + ' + ' +loss2
@@ -108,6 +114,8 @@ def create_mass_conserve_line(row):
         combined_loss = loss1 + loss2
     if combined_loss == '':
         combined_loss = 'Parent'
+
+
     return combined_loss
 df['conserve_line'] = df.apply(create_mass_conserve_line, axis=1)
 
@@ -128,6 +136,10 @@ df['loss_second_m'] = df['loss_second'].fillna(df['ion_second']).fillna('undefin
 
 reuslt_df = pd.DataFrame(index=rows, columns=columns)
 
+
+high_light = []
+
+
 for index, each_row in df.iterrows():
     the_column = -1
     if (type(each_row['ion1']) == str and type(each_row['ion2']) == str):
@@ -139,6 +151,9 @@ for index, each_row in df.iterrows():
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
         f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + ' ' + f"({str(each_row['ranking'])})"
+        
+        high_light.append(int(each_row['ranking']))
+        
 reuslt_df = reuslt_df.fillna('--')
 
 reuslt_df['Row_Count'] = (reuslt_df != '--').sum(axis=1)
@@ -237,6 +252,42 @@ with open(f"data/conserve_line_pic/colored_table_and_index{num}.html", "w") as f
 hti = Html2Image()
 hti.output_path = "data/conserve_line_pic"
 hti.screenshot(html_file=f"data/conserve_line_pic/colored_table_and_index{num}.html", save_as=f'colored_table_and_index{num}.png')
+
+
+
+
+def plot_numbered_dots(highlight_array):
+    """
+    Generate a scatter plot of 50 dots labeled 1–50.
+    Dots in highlight_array are drawn larger.
+    """
+    # Create 50 x positions spaced evenly
+    x = np.arange(1, 51)
+    y = np.zeros_like(x)  # place all dots on the same horizontal line
+
+    # Create size array — larger for highlighted numbers
+    sizes = np.where(np.isin(x, highlight_array), 200, 80)
+
+    # Scatter plot
+    plt.figure(figsize=(15, 3))
+    plt.scatter(x, y, s=sizes, color='skyblue', edgecolor='black')
+
+    # Add labels under each dot
+    for i, val in enumerate(x):
+        plt.text(x[i], -0.05, str(val), ha='center', va='top', fontsize=8)
+
+    # Styling
+    plt.axis('off')
+    plt.title("Numbered Dots (Highlighted if in given array)", fontsize=14, pad=20)
+    plt.ylim(-0.2, 0.2)
+    plt.xlim(0, 51)
+
+    plt.savefig(f'data/conserve_line_pic/numbered_dots{num}.png', bbox_inches='tight')
+    plt.close()
+
+
+plot_numbered_dots(high_light)
+print("Numbered dots plot saved as numbered_dots.png")
 
 '''
 
