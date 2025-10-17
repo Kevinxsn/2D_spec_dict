@@ -12,7 +12,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from IPython.display import HTML
 from html2image import Html2Image
 
-num = 1
+num = 7
 
 df = pd.read_csv(f'data/data_table/data_sheet{num}.csv')
 df = df.rename(columns={'Unnamed: 0': 'ranking'})
@@ -278,11 +278,11 @@ def plot_numbered_dots(highlight_array):
 
     # Styling
     plt.axis('off')
-    plt.title("Numbered Dots (Highlighted if in given array)", fontsize=14, pad=20)
+    #plt.title("Numbered Dots (Highlighted if in given array)", fontsize=14, pad=20)
     plt.ylim(-0.2, 0.2)
     plt.xlim(0, 51)
 
-    plt.savefig(f'data/conserve_line_pic/numbered_dots{num}.png', bbox_inches='tight')
+    plt.savefig(f'data/conserve_line_pic/numbered_dots{num}.png', bbox_inches='tight', transparent=True)
     plt.close()
 
 
