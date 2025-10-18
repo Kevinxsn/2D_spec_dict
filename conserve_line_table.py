@@ -114,7 +114,7 @@ def create_mass_conserve_line(row):
         combined_loss = loss1 + loss2
     if combined_loss == '':
         combined_loss = 'Parent'
-    return combined_loss
+    return combined_loss.replace(' ', '')
 
 
 df['conserve_line'] = df.apply(create_mass_conserve_line, axis=1)
