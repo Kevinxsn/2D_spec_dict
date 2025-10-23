@@ -89,7 +89,7 @@ class AA:
 
 class Pep:
     
-    def __init__(self, raw_seq):
+    def __init__(self, raw_seq, end_h20 = True):
         self.seq = Pep.extract_sequence(raw_seq) # the sequence without modification
         self.rev_seq = self.seq[::-1]
         self.seq_mod, self.ion, self.charge = Pep.parse_peptide(raw_seq) ## the sequence with modification
@@ -99,6 +99,13 @@ class Pep:
         if len(self.AA_array) != self.pep_len:
             print('AA array length and sequence length are unequal, please check')
         #print('the AA array with modification is:', print(self.AA_array))
+        self.pep_mass = 0
+        for aa in self.AA_array:
+            self.pep_mass += aa.get_mass()
+        if end_h20:
+            self.pep_mass += AA.element_masses['H2O']
+        else:
+            self.pep_mass = self.pep_mass + AA.element_masses[end_h20]
         
         
     def extract_sequence(peptide: str) -> str:
