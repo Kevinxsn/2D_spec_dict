@@ -6,10 +6,10 @@ import re
 # This code is desinged for looking for all of the paring the in the conserved line in a entire paring dataset that
 # does not limited to top 50 correlations.
 
-data = 'data/Top_Correlations_At_Full_Num_Scans_PCov/LTQ-XL/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000new.csv'
+data = 'data/Top_Correlations_At_Full_Num_Scans_PCov/LTQ-XL/20160602_1158_ME8_2+_CVscan_NCE35_Turbo_isoWidth210000/20160602_1158_ME8_2+_CVscan_NCE35_Turbo_isoWidth210000.csv'
 annot_df = pd.read_csv(data)
-pepname = 'ME16'
-charge = 3
+pepname = 'ME8'
+charge = 2
 mass_threshold = 2  # Daltons, how close the summed mass of the two ions must be to the peptide mass
 
 print(annot_df.head(5))
@@ -93,14 +93,16 @@ def peptide_name(short_name, charge):
 the_pep = peptide.Pep(peptide_name(pepname, charge))
 
 def split_ion_charge(s):
-    
     if not isinstance(s, str):
         return pd.Series([None, None])  # handle NaN / None
-    s = s.strip()
     match = re.match(r'([a-zA-Z]\d+)\((\d+)\+\)', s)
-    ion = match.group(1)
-    charge = int(match.group(2))
-    return pd.Series([ion, charge])
+    if match:
+        ion = match.group(1)
+        charge = int(match.group(2))
+        return pd.Series([ion, charge])
+    else:
+        return pd.Series([None, None])
+
 def row_ion_charge_mass(row, ion_col, charge_col, pep):
     ion = row[ion_col]
     charge = row[charge_col]
@@ -109,18 +111,42 @@ def row_ion_charge_mass(row, ion_col, charge_col, pep):
     return pep.ion_charge_mass(ion, int(charge))
 
 
-def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold):
+def compute_possible_mass(row, the_target_mass = the_pep.pep_mass):
+    combin1 = row['m/z A'] * 2 + row['m/z B'] * 1
+    combin2 = row['m/z A'] * 1 + row['m/z B'] * 2
+    dev1 = abs(combin1 - the_target_mass)
+    dev2 = abs(combin2 - the_target_mass)
+    if dev1 < dev2:
+        return combin1
+    else:
+        return combin2
+    
+
+def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold, the_charge = charge):
     ## mass_treshold is a threshold in Daltons for how close the summed mass of the two ions must be to the peptide mass
     
     #annot_df['Mass'] = annot_df['m/z A'] + annot_df['m/z B']
     #annot_df_conserve = annot_df[ abs(annot_df['Mass'] - the_pep.pep_mass) < mass_threshold ]
-    tmpA = annot_df_conserve['Interpretation A'].apply(split_ion_charge)
+    tmpA = annot_df['Interpretation A'].apply(split_ion_charge)
     tmpA.columns = ['ion1','charge1']
-    annot_df_conserve.loc[:, ['ion1','charge1']] = tmpA.values  # or tmpA
+    annot_df.loc[:, ['ion1','charge1']] = tmpA.values  # or tmpA
 
-    tmpB = annot_df_conserve['Interpretation B'].apply(split_ion_charge)
+    tmpB = annot_df['Interpretation B'].apply(split_ion_charge)
     tmpB.columns = ['ion2','charge2']
-    annot_df_conserve.loc[:, ['ion2','charge2']] = tmpB.values
+    annot_df.loc[:, ['ion2','charge2']] = tmpB.values
+    
+    if the_charge == 2:
+        annot_df['Mass'] = annot_df['m/z A'] + annot_df['m/z B']
+    
+    
+    elif the_charge == 3:
+        annot_df['Mass'] = annot_df.apply(compute_possible_mass, axis=1)
+    
+    else:
+        raise ValueError("Only charges 2 and 3 are supported in conserve_line_table")
+    
+    annot_df_conserve = annot_df[ abs(annot_df['Mass'] - the_pep.pep_mass) < mass_threshold ]
+    
     annot_df_conserve = annot_df_conserve.copy()  # avoid SettingWithCopyWarning
     annot_df_conserve.loc[:, 'm/z_A_correct_1'] = annot_df_conserve.apply(
         row_ion_charge_mass,
@@ -140,10 +166,15 @@ def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold):
     annot_df_conserve['m/z_A_correct_1'] + annot_df_conserve['m/z_A_correct_2']
     annot_df_conserve['MassDeviation1'] = abs(annot_df_conserve['m/z_A_correct_1'] - annot_df_conserve['m/z A'])
     annot_df_conserve['MassDeviation2'] = abs(annot_df_conserve['m/z_A_correct_2'] - annot_df_conserve['m/z B'])
+
+    
+    
+    
     return annot_df_conserve
 
 annot_df_conserve = conserve_line_table(annot_df, the_pep, mass_threshold=2)
 print(annot_df_conserve[['Interpretation A', 'm/z A', 'm/z_A_correct_1', 'MassDeviation1',
-                         'Interpretation B', 'm/z B',  'm/z_A_correct_2', 'MassDeviation2']])
+                         'Interpretation B', 'm/z B',  'm/z_A_correct_2', 'MassDeviation2'
+                         ]])
     
     
