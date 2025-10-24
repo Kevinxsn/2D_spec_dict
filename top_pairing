@@ -1,0 +1,149 @@
+import pandas as pd
+import numpy as np
+import peptide
+import re
+
+# This code is desinged for looking for all of the paring the in the conserved line in a entire paring dataset that
+# does not limited to top 50 correlations.
+
+data = 'data/Top_Correlations_At_Full_Num_Scans_PCov/LTQ-XL/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000new.csv'
+annot_df = pd.read_csv(data)
+pepname = 'ME16'
+charge = 3
+mass_threshold = 2  # Daltons, how close the summed mass of the two ions must be to the peptide mass
+
+print(annot_df.head(5))
+
+
+
+peptide_table = {
+#This is a table relating all peptide prefix names to their corresponding sequences. This is necessary simply because
+# the names of input files include these prefixes and not the sequences themselves.
+        "ME1": "GEYFGEK",
+        "ME2": "(nitro)YEFGIFNQK",
+        "ME3": "VVPG(nitro)YGHAVLR",
+        "ME4": "LGE(nitro)YGFQNAILVR",
+        "ME5": "GR(Me)GRPR",
+        "ME6": "GR(Me2)GRPR",
+        "ME7": "GR(Me2)GRPR",
+        "ME8": "GGNFSGR(Me)GGFGGSR",
+        "ME9": "GWGR(Me2)EENLFSWK",
+        "ME10": "GMR(Me2)GR(Me2)GR",
+        "ME11": "SLGMIFEK(Ac)R",
+        "ME12": "SLGMIFEK(Me)3R",
+        "ME13": "SLGMIFEKR",
+        "ME14": "VTIMPK(Ac)DIQLAR",
+        "ME15": "VTIMPK(Me)3DIQLAR",
+        "ME16": "VTIMPKDIQLAR",
+        "ME17": "TWR(Me2)GGEEK",
+        "ME18": "TWR(Me2)GGEEK",
+        # "MR1": "Myr-GQELSQHER",
+        # "MR2": "Myr-GQDQTK",
+        "PH1": "GDFEEIPEEpYLQ",
+        "PH2": "EQFEEpYGHMRF-NH2",
+        "PH3": "NpYpYGWMDF-NH2",
+        "PH4": "EQFDDpYGHMRF-NH2",
+        "PH5": "pYGGFL",
+        "PH6": "RDpYTGWNleDF-NH2",
+        "PH7": "DpYMGWMDF-NH2",
+        "PH8": "TWpTLCGTVEY",
+        "PH9": "FRGpSGDTSNF",
+        "PH10": "FSIAPFpYLDPSNR",
+        "PH11": "CLNRQLpSSGVSEIR",
+        "PH12": "DADEpYL-NH2",
+        # "PH13": "Pyr-DDpSDEEN",
+        "PH14": "SApSPEALAFVR",
+        "PH15": "SApTPEALAFVR",
+        "SU1": "LAIFSC(SO3H)FR",
+        "SU2": "C(SO3H)LAGLVF",
+        "SU3": "Y(SO3H)GGFL",
+        "SU4": "RDY(SO3H)TGW-Nle-DF(NH2)",
+        "SU5": "EQFDDY(SO3H)GHMRF(NH2)",
+        "SU6": "NY(SO3H)Y(SO3H)GWMDF(NH2)",
+        "SU7": "DY(SO3H)MGWMDF(NH2)",
+        "SU8": "GDFEEIPEEY(SO3H)LQ",
+        "UN1": "GDFEEIPEEYLQ",
+        "UN2": "LAIFSCFR",
+        "UN3": "TWRGGEEK",
+        "UN4": "ESVKEFLA",
+        "UN5": "GQELSQHER",
+        "UN6": "YGGFL",
+        "UN7": "SDGRG",
+        "UN8": "KRTLR",
+        "UN9": "YGGFLRRIRPKLK",
+        "UN10": "PLYKKIIKKLLES",
+        "UN14": "GSNKGAIIGLM",
+        "UN15": "MLGIIAGKNSG",
+        "7255": "ALDLLDRNYLQSLPSK",
+        "7732": "KFIFRTAGTAGR",
+        "6727": "DQARVAPSSSDPKSKFF",
+        "7302": "HGMTVVIRKKF",
+        "3510": "GSHQISLDNPDYQQDFFPK"}
+
+
+
+def peptide_name(short_name, charge):
+    sequence = peptide_table[short_name]
+    sequence = sequence + f'+{charge}H'
+    sequence = '[' + sequence + ']' + f'{charge}+'
+    return sequence
+    
+    
+
+the_pep = peptide.Pep(peptide_name(pepname, charge))
+
+def split_ion_charge(s):
+    
+    if not isinstance(s, str):
+        return pd.Series([None, None])  # handle NaN / None
+    s = s.strip()
+    match = re.match(r'([a-zA-Z]\d+)\((\d+)\+\)', s)
+    ion = match.group(1)
+    charge = int(match.group(2))
+    return pd.Series([ion, charge])
+def row_ion_charge_mass(row, ion_col, charge_col, pep):
+    ion = row[ion_col]
+    charge = row[charge_col]
+    if pd.isna(ion) or pd.isna(charge):
+        return np.nan
+    return pep.ion_charge_mass(ion, int(charge))
+
+
+def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold):
+    ## mass_treshold is a threshold in Daltons for how close the summed mass of the two ions must be to the peptide mass
+    
+    #annot_df['Mass'] = annot_df['m/z A'] + annot_df['m/z B']
+    #annot_df_conserve = annot_df[ abs(annot_df['Mass'] - the_pep.pep_mass) < mass_threshold ]
+    tmpA = annot_df_conserve['Interpretation A'].apply(split_ion_charge)
+    tmpA.columns = ['ion1','charge1']
+    annot_df_conserve.loc[:, ['ion1','charge1']] = tmpA.values  # or tmpA
+
+    tmpB = annot_df_conserve['Interpretation B'].apply(split_ion_charge)
+    tmpB.columns = ['ion2','charge2']
+    annot_df_conserve.loc[:, ['ion2','charge2']] = tmpB.values
+    annot_df_conserve = annot_df_conserve.copy()  # avoid SettingWithCopyWarning
+    annot_df_conserve.loc[:, 'm/z_A_correct_1'] = annot_df_conserve.apply(
+        row_ion_charge_mass,
+        axis=1,
+        ion_col='ion1',
+        charge_col='charge1',
+        pep=the_pep
+    )
+    
+    annot_df_conserve.loc[:, 'm/z_A_correct_2'] = annot_df_conserve.apply(
+        row_ion_charge_mass,
+        axis=1,
+        ion_col='ion2',
+        charge_col='charge2',
+        pep=the_pep
+    )
+    annot_df_conserve['m/z_A_correct_1'] + annot_df_conserve['m/z_A_correct_2']
+    annot_df_conserve['MassDeviation1'] = abs(annot_df_conserve['m/z_A_correct_1'] - annot_df_conserve['m/z A'])
+    annot_df_conserve['MassDeviation2'] = abs(annot_df_conserve['m/z_A_correct_2'] - annot_df_conserve['m/z B'])
+    return annot_df_conserve
+
+annot_df_conserve = conserve_line_table(annot_df, the_pep, mass_threshold=2)
+print(annot_df_conserve[['Interpretation A', 'm/z A', 'm/z_A_correct_1', 'MassDeviation1',
+                         'Interpretation B', 'm/z B',  'm/z_A_correct_2', 'MassDeviation2']])
+    
+    

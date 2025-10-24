@@ -106,6 +106,8 @@ class Pep:
             self.pep_mass += AA.element_masses['H2O']
         else:
             self.pep_mass = self.pep_mass + AA.element_masses[end_h20]
+        h_num = int(self.charge.replace('+','').replace('H',''))
+        self.pep_mass += h_num * AA.element_masses['proton']
         
         
     def extract_sequence(peptide: str) -> str:
@@ -303,9 +305,9 @@ class Pep:
             #return (mass + AA.element_masses['H2O'] + ion_charge * AA.element_masses['proton']) / ion_charge
             #return mass
             if defult_H2O:
-                return mass + AA.element_masses['H2O']
+                return mass + AA.element_masses['H2O'] + AA.element_masses['proton']
             else:
-                return mass
+                return mass + AA.element_masses['proton']
         
         elif ion_name[0] =='b' and ion_name[:2] != 'bi':
             mass = 0
@@ -313,7 +315,7 @@ class Pep:
             for i in range(0, end):
                 mass += self.AA_array[i].get_mass()
             #return (mass + ion_charge * AA.element_masses['proton']) / ion_charge
-            return mass
+            return mass + AA.element_masses['proton']
         
         elif ion_name[0] =='a' and ion_name[:2] != 'ai':
             mass = 0
@@ -321,7 +323,7 @@ class Pep:
             for i in range(0, end):
                 mass += self.AA_array[i].get_mass()
             #return (mass + ion_charge * AA.element_masses['proton'] - AA.element_masses['carbonyl']) / ion_charge
-            return mass - AA.element_masses['carbonyl']
+            return mass - AA.element_masses['carbonyl'] + AA.element_masses['proton']
         
         
         elif ion_name[:2] == 'yi':
@@ -370,6 +372,10 @@ class Pep:
             print('can not identify the input ion: ', ion_name)
             return None
     
+    
+    def ion_charge_mass(self, ion, charge):
+        the_ion_mass = self.ion_mass(ion)
+        return (the_ion_mass - AA.element_masses['proton'] + AA.element_masses['proton'] * charge) / charge
         
 '''        
 ptm_dict = {
@@ -381,4 +387,4 @@ ptm_dict = {
 
 #print(Pep('[GGNFSGRMeGGFGGSR+2H]2+').AA_array)
 the_pep = Pep('[EQFDDY(p)GHMRF(NH2) +3H]3+')
-print(the_pep.ion_mass('y2'))
+#print(the_pep.ion_mass('y2'))
