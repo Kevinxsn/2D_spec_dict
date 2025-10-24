@@ -2,17 +2,18 @@ import pandas as pd
 import numpy as np
 import peptide
 import re
+import os
 
 # This code is desinged for looking for all of the paring the in the conserved line in a entire paring dataset that
 # does not limited to top 50 correlations.
 
-data = 'data/Top_Correlations_At_Full_Num_Scans_PCov/LTQ-XL/20160602_1158_ME8_2+_CVscan_NCE35_Turbo_isoWidth210000/20160602_1158_ME8_2+_CVscan_NCE35_Turbo_isoWidth210000.csv'
+data = 'data/Top_Correlations_At_Full_Num_Scans_PCov/LTQ-XL/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000/20160428_2100_ME16_3+_CVscan_NCE35_Turbo10000new.csv'
 annot_df = pd.read_csv(data)
-pepname = 'ME8'
-charge = 2
+pepname = 'ME16'
+charge = 3
 mass_threshold = 2  # Daltons, how close the summed mass of the two ions must be to the peptide mass
 
-print(annot_df.head(5))
+#print(annot_df.head(5))
 
 
 
@@ -33,7 +34,8 @@ peptide_table = {
         "ME12": "SLGMIFEK(Me)3R",
         "ME13": "SLGMIFEKR",
         "ME14": "VTIMPK(Ac)DIQLAR",
-        "ME15": "VTIMPK(Me)3DIQLAR",
+        #"ME15": "VTIMPK(Me)3DIQLAR",
+        "ME15": "VTIMPK(Me3)DIQLAR",
         "ME16": "VTIMPKDIQLAR",
         "ME17": "TWR(Me2)GGEEK",
         "ME18": "TWR(Me2)GGEEK",
@@ -92,6 +94,7 @@ def peptide_name(short_name, charge):
 
 the_pep = peptide.Pep(peptide_name(pepname, charge))
 
+'''
 def split_ion_charge(s):
     if not isinstance(s, str):
         return pd.Series([None, None])  # handle NaN / None
@@ -102,16 +105,36 @@ def split_ion_charge(s):
         return pd.Series([ion, charge])
     else:
         return pd.Series([None, None])
+'''
+
+def split_ion_charge(s):
+    if not isinstance(s, str):
+        return pd.Series([None, None])
+
+    s = s.strip()
+    # Find a trailing "(<int>+)" at the very end of the string
+    m = re.search(r'\((\d+)\+\)\s*$', s)
+    if not m:
+        # If you prefer to require a charge, return (None, None) instead
+        return pd.Series([s if s else None, None])
+
+    charge = int(m.group(1))
+    ion = s[:m.start()].rstrip()   # everything before the "(<int>+)"
+    return pd.Series([ion if ion else None, charge])
+
 
 def row_ion_charge_mass(row, ion_col, charge_col, pep):
     ion = row[ion_col]
     charge = row[charge_col]
-    if pd.isna(ion) or pd.isna(charge):
+    if pd.isna(ion) or pd.isna(charge) or len(ion) > 3:
         return np.nan
     return pep.ion_charge_mass(ion, int(charge))
 
 
 def compute_possible_mass(row, the_target_mass = the_pep.pep_mass):
+    
+    if row['charge1'] is not np.nan and row['charge2'] is not np.nan:
+        return row['m/z A'] * row['charge1'] + row['m/z B'] * row['charge2']
     combin1 = row['m/z A'] * 2 + row['m/z B'] * 1
     combin2 = row['m/z A'] * 1 + row['m/z B'] * 2
     dev1 = abs(combin1 - the_target_mass)
@@ -122,7 +145,7 @@ def compute_possible_mass(row, the_target_mass = the_pep.pep_mass):
         return combin2
     
 
-def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold, the_charge = charge):
+def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold, the_charge = charge, drop_index_na = False):
     ## mass_treshold is a threshold in Daltons for how close the summed mass of the two ions must be to the peptide mass
     
     #annot_df['Mass'] = annot_df['m/z A'] + annot_df['m/z B']
@@ -167,14 +190,62 @@ def conserve_line_table(annot_df, the_pep, mass_threshold = mass_threshold, the_
     annot_df_conserve['MassDeviation1'] = abs(annot_df_conserve['m/z_A_correct_1'] - annot_df_conserve['m/z A'])
     annot_df_conserve['MassDeviation2'] = abs(annot_df_conserve['m/z_A_correct_2'] - annot_df_conserve['m/z B'])
 
-    
-    
+    if drop_index_na:
+        annot_df_conserve = annot_df_conserve.dropna(subset=['Index'])
     
     return annot_df_conserve
 
-annot_df_conserve = conserve_line_table(annot_df, the_pep, mass_threshold=2)
-print(annot_df_conserve[['Interpretation A', 'm/z A', 'm/z_A_correct_1', 'MassDeviation1',
-                         'Interpretation B', 'm/z B',  'm/z_A_correct_2', 'MassDeviation2'
-                         ]])
+#annot_df_conserve = conserve_line_table(annot_df, the_pep, mass_threshold=2)
+#print(annot_df_conserve[['Index','Interpretation A', 'm/z A', 'm/z_A_correct_1', 'MassDeviation1',
+#                         'Interpretation B', 'm/z B',  'm/z_A_correct_2', 'MassDeviation2'
+#                         ]])
     
+
+
+def save_dataframe_to_txt(df, file_path, sequence_name = peptide_name(pepname, charge)):
+    """
+    Appends a pandas DataFrame to a text file (without overwriting).
+    Each write adds a separator line before the new content.
+    """
     
+    df = df[['Index', 'Interpretation A', 'm/z A', 'm/z_A_correct_1', 'MassDeviation1','charge1',
+        'Interpretation B', 'm/z B', 'm/z_A_correct_2', 'MassDeviation2', 'charge2','Mass'
+    ]]
+    with open(file_path, 'a', encoding='utf-8') as f:  # 'a' means append mode
+        f.write(f'\n\n{sequence_name}\n')
+        df.to_string(f, index=False)  # write DataFrame content as plain text
+
+#save_dataframe_to_txt(annot_df_conserve, 'conserved_lines_output.txt')
+
+if __name__ == "__main__":
+    folder_path = 'data/Top_Correlations_At_Full_Num_Scans_PCov/annotated'
+    pattern = re.compile(r'^([A-Za-z]+\d+)_([23])\+\.csv$')
+
+    for fname in os.listdir(folder_path):
+        match = pattern.match(fname)
+        if match:
+            base_name = match.group(1)  # e.g. "ME8"
+            charge = int(match.group(2))  # e.g. 2 or 3
+            data = os.path.join(folder_path, fname)
+            annot_df = pd.read_csv(data)
+
+            pepname = base_name
+            mass_threshold = 2 
+            the_pep = peptide.Pep(peptide_name(pepname, charge))
+
+            annot_df_conserve = conserve_line_table(
+                annot_df,
+                the_pep,
+                mass_threshold=mass_threshold,
+                the_charge=charge,
+                drop_index_na=True
+            )
+
+            save_dataframe_to_txt(
+                annot_df_conserve,
+                'conserved_lines_output.txt',
+                sequence_name=peptide_name(pepname, charge)
+            )
+
+        else:
+            print(f"Skipping non-matching file: {fname}")
