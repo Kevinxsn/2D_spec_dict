@@ -13,7 +13,7 @@ pepname = 'ME16'
 charge = 3
 mass_threshold = 2  # Daltons, how close the summed mass of the two ions must be to the peptide mass
 
-#print(annot_df.head(5))
+print(annot_df.head(5))
 
 
 
