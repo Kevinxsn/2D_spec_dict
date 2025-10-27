@@ -11,10 +11,12 @@ from math import sqrt
 
 
 
+original_sequence = ''
 
 df = pd.read_csv('data/data_table/data_sheet7.csv')
+the_pep = peptide.Pep(original_sequence)
 
-Mass = 1253.502780
+Mass = the_pep.pep_mass
 
 conserve_line_df = df[(df['m1+m2']< Mass+1) & (df['m1+m2']> Mass-1)]
 df['ion'] = df['ion1'] +df['ion2']
