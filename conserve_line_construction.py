@@ -8,26 +8,73 @@ from collections import defaultdict
 from typing import Dict, List, Tuple, Any, Set, Iterable, Optional
 from math import sqrt
 
+conserve_mass = {'NH3': 17.031, 'H2O': 18.015}
+conserve_line_chosen = [0, conserve_mass['NH3'], conserve_mass['H2O']] #0 as parents line
+#conserve_line_chosen = [0]
 
 
+original_sequence = '[LGEY(nitro)GFQNAILVR+3H]3+'
 
-original_sequence = ''
-
-df = pd.read_csv('data/data_table/data_sheet7.csv')
+df = pd.read_csv('data/data_table/data_sheet6.csv')
 the_pep = peptide.Pep(original_sequence)
-
 Mass = the_pep.pep_mass
 
-conserve_line_df = df[(df['m1+m2']< Mass+1) & (df['m1+m2']> Mass-1)]
+
+df.rename(columns={'mass1': 'm/z A'}, inplace=True)
+df.rename(columns={'mass2': 'm/z B'}, inplace=True)
+
+def compute_possible_mass(row, the_target_mass = the_pep.pep_mass):
+    
+    combin1 = row['m/z A'] * 2 + row['m/z B'] * 1
+    combin2 = row['m/z A'] * 1 + row['m/z B'] * 2
+    dev1 = abs(combin1 - the_target_mass)
+    dev2 = abs(combin2 - the_target_mass)
+    if dev1 < dev2:
+        return row['m/z A'] * 2, row['m/z B'] * 1, combin1
+    else:
+        return row['m/z A'] * 1, row['m/z B'] * 2, combin2
+
+
+if the_pep.charge == '2+':
+    df['A_ind'] = df['m/z A'] * 1
+    df['B_ind'] = df['m/z B'] * 1
+    df['possible_mass'] = df['m/z A'] * 1 + df['m/z B'] * 1
+    
+
+if the_pep.charge == '3+':
+    df[['A_ind','B_ind','possible_mass']] = df.apply(
+        compute_possible_mass, axis=1, result_type='expand'
+    )
+
+
 df['ion'] = df['ion1'] +df['ion2']
 
-df_current = df.iloc[[31, 2, 1, 0, 3, 5, 13, 35, 10, 12,24,27,25,11,15,23]]
+
+
+def select_conserve(df, target, offsets = conserve_line_chosen, tolerance=1, col = 'possible_mass'):
+    """
+    Select rows where df[col] is within ±tolerance of target or target ± offset values.
+    Select the rows we want to conserve along the line.
+    """
+    mask = pd.Series(False, index=df.index)
+
+    for offset in offsets:
+        center = target - offset
+        mask |= df[col].between(center - tolerance, center + tolerance)
+
+    return df[mask]
+
+#df_current = df.iloc[[1,46,3,33,2,24, 16, 17, 20, 4,11]]
+df_current = select_conserve(df, Mass)
+#print(df_current)
 
 
 def plot_points_on_sum_line(
     df,
-    xcol="correct_mass1",
-    ycol="correct_mass2",
+    #xcol="correct_mass1",
+    #ycol="correct_mass2",
+    xcol="A_ind",
+    ycol="B_ind",
     label_col="ion",
     c: float | None = None,
     figsize=(8, 8),
@@ -156,13 +203,13 @@ def plot_points_on_sum_line(
     return fig, ax, texts
 
 
-plot_points_on_sum_line(df_current, c=Mass, point_size=30, annotate=True, label_col="ion")
+plot_points_on_sum_line(df_current, c=Mass, point_size=30, annotate=True, label_col="ion", show=False)
 
 
 
 
 
-starting_point = (182.08, 1071.42)
+starting_point = (174.65, 675.8*2)
 
 
 amino_acid_masses = {
@@ -188,6 +235,8 @@ amino_acid_masses = {
     "V": 99.06841,    # Valine
     "R(Me)": 156.10111 + 14.01565,  # Methylated Arginine
     "T(p)": 101.04768 + 79.96633,  # Phosphorylated Threonine
+    'Y(nitro)': 163.06333 + 44.98508,  # Nitrated Tyrosine
+    "R(Me2)": 156.10111 + 2*14.01565,
 }
 
 amino_acid_masses_value = {value: key for key, value in amino_acid_masses.items()}
@@ -199,9 +248,11 @@ ptm_masses = {
 
 the_pep = peptide.Pep("[GGNFSGR(Me)GGFGGSR+2H]2+")
 
-df_current.loc[:,'correct_sum'] = df_current['correct_mass1'] + df_current['correct_mass2']
+#df_current.loc[:,'correct_sum'] = df_current['correct_mass1'] + df_current['correct_mass2']
+#df_current.loc[:,'conserve'] = df_current['correct_sum'].apply(lambda x: abs(x - Mass) < 1)
 
-df_current.loc[:,'conserve'] = df_current['correct_sum'].apply(lambda x: abs(x - Mass) < 1)
+df_current.loc[:,'ind_sum'] = df_current['A_ind'] + df_current['B_ind']
+df_current.loc[:,'conserve'] = df_current['ind_sum'].apply(lambda x: abs(x - Mass) < 1)
 
 def _q1(v: float, eps: float) -> int:
     """Quantize a float to an integer key with tolerance eps."""
@@ -388,29 +439,66 @@ def enumerate_paths_2d(points_xy: Iterable[Tuple[float, float]],
     dfs(s_idx, [])
     return results
 
-print(df_current[['correct_mass1', 'correct_mass2', 'conserve']])
+#print(df_current[['correct_mass1', 'correct_mass2', 'conserve']])
+print(df_current[['A_ind', 'B_ind', 'conserve', 'ion']])
+
+
+def closest_point_on_line(x, y, a):
+    """
+    Compute the closest point on the line x + y = a to a given point (x, y).
+    Returns (x_closest, y_closest).
+    """
+    x_c = (x - y + a) / 2
+    y_c = (y - x + a) / 2
+    return x_c, y_c
+
 
 points_xy = []
 for index, row in df_current.iterrows():
     #print(row['ion'])
     if row['conserve']:
         print(row['ion'])
-        points_xy.append((row['correct_mass1'], row['correct_mass2']))
-        print((row['correct_mass1'], row['correct_mass2']))
-    else:
+        #points_xy.append((row['correct_mass1'], row['correct_mass2']))
+        #print((row['correct_mass1'], row['correct_mass2']))
+        #points_xy.append((row['A_ind'], row['B_ind']))
+        #print((row['A_ind'], row['B_ind']))
+        
+        points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'], Mass))
+        print(closest_point_on_line(row['A_ind'], row['B_ind'], Mass))
+    else:   
         print(row['ion'])
-        points_xy.append((row['correct_mass1'] + 17.031, row['correct_mass2']))
-        points_xy.append((row['correct_mass1'], row['correct_mass2'] + 17.031))
-        print((row['correct_mass1'] + 17.031, row['correct_mass2']))
-        print((row['correct_mass1'], row['correct_mass2'] + 17.031))
+        #points_xy.append((row['correct_mass1'] + 17.031, row['correct_mass2']))
+        #points_xy.append((row['correct_mass1'], row['correct_mass2'] + 17.031))
+        #print((row['correct_mass1'] + 17.031, row['correct_mass2']))
+        #print((row['correct_mass1'], row['correct_mass2'] + 17.031))
+        
+        #points_xy.append((row['A_ind'] + 17.031, row['B_ind']))
+        #print((row['A_ind'] + 17.031, row['B_ind']))
+        #points_xy.append((row['A_ind'], row['B_ind'] + 17.031))
+        #print((row['A_ind'], row['B_ind'] + 17.031))
+        
+        points_xy.append(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
+        print(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
+        points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
+        print(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
+        
+        
         
 all_values = np.array(list(amino_acid_masses.values()))
 all_values = all_values * np.sqrt(2)
 
+#starting_point = closest_point_on_line(146.73738500000007, 845.7773850000001, Mass)
+points_xy.sort( key=lambda p: (p[0]))
 
-paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=0.2)
+#print(points_xy)
+starting_point = points_xy[0]
 
-def track_path(the_path):
+
+paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=4)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[1], return_steps=False, eps=4)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[2], return_steps=False, eps=4)
+
+def track_path(the_path, threshold=0.01):
     result = []
     for i in the_path:
         each_result1 = ''
@@ -418,14 +506,14 @@ def track_path(the_path):
         for j in range(1, len(i)):
             mass = i[j][0] - i[j-1][0]
             for aa, aa_mass in amino_acid_masses.items():
-                if abs(mass - aa_mass) < 0.01:
+                if abs(mass - aa_mass) < threshold:
                     each_result1 += aa
                     break
         
         for j in range(len(i) - 1, 0, -1):
             mass = i[j - 1][1] - i[j][1]
             for aa, aa_mass in amino_acid_masses.items():
-                if abs(mass - aa_mass) < 0.01:
+                if abs(mass - aa_mass) < threshold:
                     each_result2 += aa
                     break
         each_result1 = str(i[0][0]), each_result1, str(i[-1][0])
@@ -434,16 +522,132 @@ def track_path(the_path):
         result.append(each_result2)
     
     return result
+
+
+
+
+from itertools import product
+
+def track_path_all(
+    paths,
+    amino_acid_masses,
+    threshold=0.01,
+    per_step_k=3,          # keep the K closest AA candidates per step
+    max_seqs=5000          # safety cap on total sequences per direction
+):
+    """
+    For each path (list of nodes), generate all plausible AA sequences whose
+    step deltas match AA masses within `threshold`. Does both 'forward' (x)
+    and 'reverse' (y) directions.
+
+    Returns a list of dicts:
+      {
+        'direction': 'forward' | 'reverse',
+        'start_mass': float,
+        'end_mass': float,
+        'sequence': 'PEPTIDE',
+        'total_error': float  # sum of per-step absolute errors
+      }
+    """
+    def candidates_for_delta(delta):
+        # return list of (aa, abs_error) sorted by abs_error, truncated to per_step_k
+        cands = []
+        for aa, m in amino_acid_masses.items():
+            err = abs(delta - m)
+            if err < threshold:
+                cands.append((aa, err))
+        cands.sort(key=lambda t: t[1])
+        return cands[:per_step_k]
+
+    def build_sequences(candidate_steps, start_mass, end_mass, direction):
+        """
+        candidate_steps: list of lists; each inner list is [(aa, err), ...] for a step
+        returns list of dicts (sequence + total_error)
+        """
+        if any(len(step) == 0 for step in candidate_steps):
+            return []  # no solution if any step has no candidates
+
+        # Cartesian product over steps
+        seqs = []
+        count = 0
+        for combo in product(*candidate_steps):
+            count += 1
+            if count > max_seqs:
+                break
+            aa_seq = ''.join(aa for aa, _ in combo)
+            tot_err = sum(err for _, err in combo)
+            seqs.append({
+                'direction': direction,
+                'start_mass': float(start_mass),
+                'end_mass': float(end_mass),
+                'sequence': aa_seq,
+                'total_error': float(tot_err)
+            })
+        # Sort by total error (best first)
+        seqs.sort(key=lambda d: d['total_error'])
+        return seqs
+
+    results = []
+
+    for path in paths:
+        # path is a list like [(x0, y0), (x1, y1), ..., (xN, yN)]
+
+        # ---- Forward (x): use deltas on x component left->right
+        forward_steps = []
+        for j in range(1, len(path)):
+            delta = path[j][0] - path[j-1][0]
+            forward_steps.append(candidates_for_delta(delta))
+        results.extend(
+            build_sequences(
+                forward_steps,
+                start_mass=path[0][0],
+                end_mass=path[-1][0],
+                direction='forward'
+            )
+        )
+
+        # ---- Reverse (y): use deltas on y component right->left
+        reverse_steps = []
+        for j in range(len(path)-1, 0, -1):
+            delta = path[j-1][1] - path[j][1]
+            reverse_steps.append(candidates_for_delta(delta))
+        results.extend(
+            build_sequences(
+                reverse_steps,
+                start_mass=path[-1][1],
+                end_mass=path[0][1],
+                direction='reverse'
+            )
+        )
+
+    return results
+
             
-path_combined = track_path(paths)
+#path_combined = track_path(paths, threshold=0.5)
 
-print(paths)
+print('Final paths:')
+#print(paths)
+print(max(len(p) for p in paths))
+print(len(paths))
 
-print(path_combined)
-
-
-
-
-
+print('results:')
 
 
+all_results = []
+result_set = set()
+
+threshold = 0.5
+while(len(result_set) < 70):
+    all_results += track_path_all(paths, amino_acid_masses, threshold=threshold, per_step_k=4)
+    threshold += 0.1
+    #print('threshold:', threshold)
+
+    best50 = sorted(all_results, key=lambda d: d['total_error'])
+
+    
+    for i in best50:
+        result_set.add((i['start_mass'], i['sequence'], i['end_mass']))
+    
+print(set(result_set))
+print(len(set(result_set)))
+print(threshold)
