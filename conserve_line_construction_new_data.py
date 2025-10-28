@@ -7,21 +7,48 @@ import itertools
 from collections import defaultdict
 from typing import Dict, List, Tuple, Any, Set, Iterable, Optional
 from math import sqrt
+import re
 
+
+
+name = 'ME17_3+.CSV'
+pattern = re.compile(r'^([A-Za-z]+\d+)_([23])\+\.csv$', re.IGNORECASE)
+
+match = pattern.match(name)
+if match:
+    base_name = match.group(1)
+    charge = int(match.group(2))
+    print(base_name, charge)
+else:
+    print("No match")
+
+file_path = f'data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{name}'
+pep_name_dict = peptide.peptide_table
 conserve_mass = {'NH3': 17.031, 'H2O': 18.015}
-conserve_line_chosen = [0, conserve_mass['NH3'], conserve_mass['H2O']] #0 as parents line
+conserve_line_chosen = [0, conserve_mass['NH3']] #0 as parents line
 #conserve_line_chosen = [0]
 
+def peptide_name(short_name, charge):
+    sequence = pep_name_dict[short_name]
+    sequence = sequence + f'+{charge}H'
+    sequence = '[' + sequence + ']' + f'{charge}+'
+    return sequence
 
-original_sequence = '[LGEY(nitro)GFQNAILVR+3H]3+'
 
-df = pd.read_csv('data/data_table/data_sheet6.csv')
+original_sequence = peptide_name(base_name, charge)
+
+df = pd.read_csv(file_path)
 the_pep = peptide.Pep(original_sequence)
 Mass = the_pep.pep_mass
 
+df['pair'] = df.apply(lambda r: tuple(sorted([r['m/z A'], r['m/z B']])), axis=1)
+unique_pairs_df = df.drop_duplicates(subset='pair', keep='first')
+unique_pairs_df = unique_pairs_df.drop(columns='pair')
+df = unique_pairs_df
 
-df.rename(columns={'mass1': 'm/z A'}, inplace=True)
-df.rename(columns={'mass2': 'm/z B'}, inplace=True)
+
+#df.rename(columns={'mass1': 'm/z A'}, inplace=True)
+#df.rename(columns={'mass2': 'm/z B'}, inplace=True)
 
 def compute_possible_mass(row, the_target_mass = the_pep.pep_mass):
     
@@ -47,7 +74,7 @@ if the_pep.charge == '3+':
     )
 
 
-df['ion'] = df['ion1'] +df['ion2']
+df['ion'] = df['Interpretation A'] +df['Interpretation B']
 
 
 
@@ -237,6 +264,7 @@ amino_acid_masses = {
     "T(p)": 101.04768 + 79.96633,  # Phosphorylated Threonine
     'Y(nitro)': 163.06333 + 44.98508,  # Nitrated Tyrosine
     "R(Me2)": 156.10111 + 2*14.01565,
+    'E(nitro)': 129.04259 + 44.98508
 }
 
 amino_acid_masses_value = {value: key for key, value in amino_acid_masses.items()}
@@ -494,9 +522,9 @@ points_xy.sort( key=lambda p: (p[0]))
 starting_point = points_xy[0]
 
 
-paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=4)
-paths += enumerate_paths_2d(points_xy, all_values, points_xy[1], return_steps=False, eps=4)
-paths += enumerate_paths_2d(points_xy, all_values, points_xy[2], return_steps=False, eps=4)
+paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=3)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[1], return_steps=False, eps=3)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[2], return_steps=False, eps=3)
 
 def track_path(the_path, threshold=0.01):
     result = []
@@ -637,8 +665,8 @@ all_results = []
 result_set = set()
 
 threshold = 0.5
-while(len(result_set) < 70):
-    all_results += track_path_all(paths, amino_acid_masses, threshold=threshold, per_step_k=4)
+while(len(result_set) < 100):
+    all_results += track_path_all(paths, amino_acid_masses, threshold=threshold, per_step_k=5)
     threshold += 0.1
     #print('threshold:', threshold)
 
@@ -651,3 +679,4 @@ while(len(result_set) < 70):
 print(set(result_set))
 print(len(set(result_set)))
 print(threshold)
+print(original_sequence)

@@ -9,13 +9,14 @@ from typing import Dict, List, Tuple, Any, Set, Iterable, Optional
 from math import sqrt
 
 conserve_mass = {'NH3': 17.031, 'H2O': 18.015}
-conserve_line_chosen = [0, conserve_mass['NH3'], conserve_mass['H2O']] #0 as parents line
+#conserve_line_chosen = [0, conserve_mass['NH3'], conserve_mass['H2O']] #0 as parents line
+conserve_line_chosen = [0, conserve_mass['NH3']]
 #conserve_line_chosen = [0]
 
 
-original_sequence = '[LGEY(nitro)GFQNAILVR+3H]3+'
+original_sequence = '[GGNFSGR(Me)GGFGGSR+2H]2+ '
 
-df = pd.read_csv('data/data_table/data_sheet6.csv')
+df = pd.read_csv('data/data_table/data_sheet1.csv')
 the_pep = peptide.Pep(original_sequence)
 Mass = the_pep.pep_mass
 
@@ -203,7 +204,7 @@ def plot_points_on_sum_line(
     return fig, ax, texts
 
 
-plot_points_on_sum_line(df_current, c=Mass, point_size=30, annotate=True, label_col="ion", show=False)
+plot_points_on_sum_line(df_current, c=Mass, point_size=30, annotate=True, label_col="ion", show=True)
 
 
 
@@ -460,10 +461,11 @@ for index, row in df_current.iterrows():
         print(row['ion'])
         #points_xy.append((row['correct_mass1'], row['correct_mass2']))
         #print((row['correct_mass1'], row['correct_mass2']))
-        #points_xy.append((row['A_ind'], row['B_ind']))
+        points_xy.append((row['A_ind'], row['B_ind']))
         #print((row['A_ind'], row['B_ind']))
         
-        points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'], Mass))
+        #points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'], Mass))
+        
         print(closest_point_on_line(row['A_ind'], row['B_ind'], Mass))
     else:   
         print(row['ion'])
@@ -472,15 +474,15 @@ for index, row in df_current.iterrows():
         #print((row['correct_mass1'] + 17.031, row['correct_mass2']))
         #print((row['correct_mass1'], row['correct_mass2'] + 17.031))
         
-        #points_xy.append((row['A_ind'] + 17.031, row['B_ind']))
-        #print((row['A_ind'] + 17.031, row['B_ind']))
-        #points_xy.append((row['A_ind'], row['B_ind'] + 17.031))
-        #print((row['A_ind'], row['B_ind'] + 17.031))
+        points_xy.append((row['A_ind'] + 17.031, row['B_ind']))
+        print((row['A_ind'] + 17.031, row['B_ind']))
+        points_xy.append((row['A_ind'], row['B_ind'] + 17.031))
+        print((row['A_ind'], row['B_ind'] + 17.031))
         
-        points_xy.append(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
-        print(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
-        points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
-        print(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
+        #points_xy.append(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
+        #print(closest_point_on_line(row['A_ind'] + 17.031, row['B_ind'], Mass))
+        #points_xy.append(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
+        #print(closest_point_on_line(row['A_ind'], row['B_ind'] + 17.031, Mass))
         
         
         
@@ -494,9 +496,9 @@ points_xy.sort( key=lambda p: (p[0]))
 starting_point = points_xy[0]
 
 
-paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=4)
-paths += enumerate_paths_2d(points_xy, all_values, points_xy[1], return_steps=False, eps=4)
-paths += enumerate_paths_2d(points_xy, all_values, points_xy[2], return_steps=False, eps=4)
+paths = enumerate_paths_2d(points_xy, all_values, starting_point, return_steps=False, eps=3)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[1], return_steps=False, eps=3)
+paths += enumerate_paths_2d(points_xy, all_values, points_xy[2], return_steps=False, eps=3)
 
 def track_path(the_path, threshold=0.01):
     result = []
@@ -636,8 +638,8 @@ print('results:')
 all_results = []
 result_set = set()
 
-threshold = 0.5
-while(len(result_set) < 70):
+threshold = 0.1
+while(len(result_set) < 100):
     all_results += track_path_all(paths, amino_acid_masses, threshold=threshold, per_step_k=4)
     threshold += 0.1
     #print('threshold:', threshold)
