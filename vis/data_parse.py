@@ -9,6 +9,7 @@ import os
 import json
 import util
 import neutral_loss_mass
+import b_y_graph
 
 
 def choose_sum(row, entire_pep_seq_mass):
@@ -23,6 +24,14 @@ def choose_sum(row, entire_pep_seq_mass):
     else:
         return 'm1+2m2', row['m1+2m2']
 
+def classify_ion(ion):
+    if isinstance(ion, str):
+        if ion.lower().startswith('y'):
+            return 'y'
+        elif ion.lower().startswith(('b', 'a')):
+            return 'b'
+    return None  # for NaN or unrecognized types
+    
 
 
 def correct_mass_calc1(row):
@@ -241,6 +250,20 @@ def process_ion_dataframe(df, the_pep):
         choose_sum, args=(entire_pep_seq_mass,), axis=1, result_type='expand'
     )
     
+    df_current['type1'] = df_current['ion1'].apply(classify_ion)
+    df_current['type2'] = df_current['ion2'].apply(classify_ion)
+    df_current['y_ion'] = np.nan
+    df_current['y_mz'] = np.nan
+    df_current['b_ion'] = np.nan
+    df_current['b_mz'] = np.nan
+    df_current.loc[df_current['type1'] == 'y', ['y_ion', 'y_mz']] = df_current.loc[df_current['type1'] == 'y', ['ion1', 'mass1']].values
+    df_current.loc[df_current['type1'] == 'b', ['b_ion', 'b_mz']] = df_current.loc[df_current['type1'] == 'b', ['ion1', 'mass1']].values
+
+    df_current.loc[df_current['type2'] == 'y', ['y_ion', 'y_mz']] = df_current.loc[df_current['type2'] == 'y', ['ion2', 'mass2']].values
+    df_current.loc[df_current['type2'] == 'b', ['b_ion', 'b_mz']] = df_current.loc[df_current['type2'] == 'b', ['ion2', 'mass2']].values
+
+
+    
     return df_current
 
 common_neutrol_loss_group = {'(NH3)', '(H2O)', '2(H2O)', '2(NH3)'}
@@ -278,7 +301,7 @@ def data_classify(row, the_pep):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "ME14_2+.csv"
+    csv_data = "ME14_3+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
@@ -296,9 +319,25 @@ if __name__ == "__main__":
     ## Choose the first interpertation
     df = df[df['Index'].notna()]
     results = process_ion_dataframe(df.head(50), pep)
+    
     results['classification'] = results.apply(data_classify, args=(pep,), axis=1)
     #print(results)
+    
+    the_list = []
+    the_y_list = []
+    
+    results['loss1'] = results['loss1'].replace({None: np.nan})
+    results['loss2'] = results['loss2'].replace({None: np.nan})
+    
+    
+    df_y = b_y_graph.ion_data_organizer_y(results, sequence)
+    df_x = b_y_graph.ion_data_organizer_d(results, sequence)
+    
+    print(df_y)
+    print(df_x)
+    
+    
 
     print("--- Parsed Results ---")
-    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification']])
+    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification', 'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1']])
     print("\n--- End of Results ---")
