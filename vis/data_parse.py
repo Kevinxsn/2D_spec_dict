@@ -8,6 +8,61 @@ import peptide
 import os
 import json
 import util
+import neutral_loss_mass
+
+
+def choose_sum(row, entire_pep_seq_mass):
+    diff1 = abs(row['m1+m2']  - entire_pep_seq_mass)
+    diff2 = abs(row['2m1+m2'] - entire_pep_seq_mass)
+    diff3 = abs(row['m1+2m2'] - entire_pep_seq_mass)
+    min_diff = min(diff1, diff2, diff3)
+    if min_diff == diff1:
+        return 'm1+m2', row['m1+m2']
+    elif min_diff == diff2:
+        return '2m1+m2', row['2m1+m2']
+    else:
+        return 'm1+2m2', row['m1+2m2']
+
+
+
+def correct_mass_calc1(row):
+    proton = 1.00725
+    charge = int(row['charge1'][0]) if row['charge1'] != None else None
+    result = None
+    if charge is not None:
+        if row['loss_sign1'] is not None:
+            if row['loss_sign1'] == '+':
+                result = (row['ion_mass1'] - proton + row['addition_mass1'] + charge * proton) / charge
+            else:
+                result = (row['ion_mass1'] - proton - row['addition_mass1'] + charge * proton) / charge
+        else:
+            result = (row['ion_mass1'] - proton + charge * proton) / charge
+    elif charge is None and row['ion1'] is not None:
+        if row['loss_sign1'] == '+':
+            result = (row['ion_mass1'] - proton + row['addition_mass1'] + 1 * proton) / 1
+        else:
+            result = (row['ion_mass1'] - proton - row['addition_mass1'] + 1 * proton) / 1
+    return result
+
+
+def correct_mass_calc2(row):
+    proton = 1.00725
+    charge = int(row['charge2'][0]) if row['charge2'] != None else None
+    result = None
+    if charge is not None:
+        if row['loss_sign2'] is not None:
+            if row['loss_sign2'] == '+':
+                result = (row['ion_mass2'] - proton + row['addition_mass2'] + charge * proton) / charge
+            else:
+                result = (row['ion_mass2'] - proton - row['addition_mass2'] + charge * proton) / charge
+        else:
+            result = (row['ion_mass2'] - proton + charge * proton) / charge
+    elif charge is None and row['ion2'] is not None:
+        if row['loss_sign2'] == '+':
+            result = (row['ion_mass2'] - proton + row['addition_mass2'] + 1 * proton) / 1
+        else:
+            result = (row['ion_mass2'] - proton - row['addition_mass2'] + 1 * proton) / 1
+    return result
 
 def parse_csv_ion_string(s):
     """
@@ -76,12 +131,12 @@ def parse_csv_ion_string(s):
         loss = loss_part[1:]      # Everything after the sign
         
         # Clean up loss: remove surrounding parentheses if they exist, e.g., '(H2O)' -> 'H2O'
-        if loss.startswith('(') and loss.endswith(')'):
-            loss = loss[1:-1]
+        #if loss.startswith('(') and loss.endswith(')'):
+        #    loss = loss[1:-1]
 
     return ion, loss, loss_sign, charge
 
-def process_ion_dataframe(df):
+def process_ion_dataframe(df, the_pep):
     """
     Reads a DataFrame and parses the interpretation columns.
 
@@ -148,7 +203,74 @@ def process_ion_dataframe(df):
         print(f"An error occurred while processing the DataFrame: {e}")
         return []
         
-    return parsed_results
+    df_current = pd.json_normalize(parsed_results)
+    
+    df_current.columns = ['Index', 'A_raw', 'ion1', 'loss1', 'loss_sign1', 'charge1', 'mass1', 'B_raw', 'ion2', 'loss2', 'loss_sign2', 'charge2', 'mass2']
+    
+    H2O_decider = pep.AA_array[-1].attach is None
+    
+    
+    
+    #df_current['loss1']= df_current['loss1'].apply(lambda x: '(' + x + ')' if pd.notna(x) else x)
+    #df_current['loss2']= df_current['loss2'].apply(lambda x: '(' + x + ')' if pd.notna(x) else x)
+    #print(df_current)
+    
+    
+    
+    df_current['addition_mass1']= df_current['loss1'].apply(neutral_loss_mass.mass_of_loss)
+    df_current['addition_mass2']= df_current['loss2'].apply(neutral_loss_mass.mass_of_loss)
+    
+    
+    
+    df_current['ion_mass1'] = df_current['ion1'].apply(pep.ion_mass, defult_H2O = H2O_decider)
+    df_current['ion_mass2'] = df_current['ion2'].apply(pep.ion_mass, defult_H2O = H2O_decider)
+    proton = 1.00725
+    entire_pep_seq_mass = pep.pep_mass
+    
+    
+    df_current['correct_mass1'] = df_current.apply(correct_mass_calc1, axis=1)
+    df_current['correct_mass2'] = df_current.apply(correct_mass_calc2, axis=1)
+    df_current['mass_difference1'] = df_current['mass1'] - df_current['correct_mass1']
+    df_current['mass_difference2'] = df_current['mass2'] - df_current['correct_mass2']
+
+    df_current['m1+m2'] = df_current['mass1'] + df_current['mass2']
+    df_current['2m1+m2'] = 2 * df_current['mass1'] + df_current['mass2']
+    df_current['m1+2m2'] = df_current['mass1'] + 2 * df_current['mass2']
+    
+    df_current[['chosen_sum_from', 'chosen_sum']] = df_current.apply(
+        choose_sum, args=(entire_pep_seq_mass,), axis=1, result_type='expand'
+    )
+    
+    return df_current
+
+common_neutrol_loss_group = {'(NH3)', '(H2O)', '2(H2O)', '2(NH3)'}
+
+def data_classify(row, the_pep):
+    ion1 = row['ion1']
+    ion2 = row['ion2']
+    loss1 = row['loss1']
+    loss2 = row['loss2']
+    
+    if (ion1 == '???') or (ion2 == '???'):
+        return 'unclear'
+        
+    elif (ion1[:2] == 'ai' or ion1[:2] =='bi') or (ion2[:2] == 'ai' or ion2[:2] =='bi'):
+        return 'internal_acid'
+    
+    elif ('/' in ion1) or ('/' in ion2):
+        return 'ambiguous'
+    elif (loss1 is not None and loss1 not in common_neutrol_loss_group) or (loss2 is not None and loss2 not in common_neutrol_loss_group):
+        return 'rare_mode'
+    elif (type(ion1) is str) and (type(ion2) is str):
+        ion1_num = ion1[1:]
+        ion2_num = ion2[1:]
+        if int(ion1_num) + int(ion2_num) != len(the_pep.AA_array):
+            return 'non_complementary'
+    
+    return 'usable'
+    
+
+
 
 
 
@@ -156,7 +278,7 @@ def process_ion_dataframe(df):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "ME4_2+.csv"
+    csv_data = "ME14_2+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
@@ -165,6 +287,7 @@ if __name__ == "__main__":
     
     ## Store sequence into peptide class
     sequence = util.name_ouput(csv_data)
+    print(sequence)
     csv_data = file_path
     pep = peptide.Pep(sequence)
     df = pd.read_csv(csv_data)
@@ -172,9 +295,10 @@ if __name__ == "__main__":
     
     ## Choose the first interpertation
     df = df[df['Index'].notna()]
-    results = process_ion_dataframe(df.head(5))
+    results = process_ion_dataframe(df.head(50), pep)
+    results['classification'] = results.apply(data_classify, args=(pep,), axis=1)
     #print(results)
-    if results:
-        print("--- Parsed Results ---")
-        print(json.dumps(results, indent=2))
-        print("\n--- End of Results ---")
+
+    print("--- Parsed Results ---")
+    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification']])
+    print("\n--- End of Results ---")
