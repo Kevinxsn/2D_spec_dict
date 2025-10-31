@@ -216,7 +216,7 @@ def process_ion_dataframe(df, the_pep):
     
     df_current.columns = ['Index', 'A_raw', 'ion1', 'loss1', 'loss_sign1', 'charge1', 'mass1', 'B_raw', 'ion2', 'loss2', 'loss_sign2', 'charge2', 'mass2']
     
-    H2O_decider = pep.AA_array[-1].attach is None
+    H2O_decider = the_pep.AA_array[-1].attach is None
     
     
     
@@ -231,10 +231,10 @@ def process_ion_dataframe(df, the_pep):
     
     
     
-    df_current['ion_mass1'] = df_current['ion1'].apply(pep.ion_mass, defult_H2O = H2O_decider)
-    df_current['ion_mass2'] = df_current['ion2'].apply(pep.ion_mass, defult_H2O = H2O_decider)
+    df_current['ion_mass1'] = df_current['ion1'].apply(the_pep.ion_mass, defult_H2O = H2O_decider)
+    df_current['ion_mass2'] = df_current['ion2'].apply(the_pep.ion_mass, defult_H2O = H2O_decider)
     proton = 1.00725
-    entire_pep_seq_mass = pep.pep_mass
+    entire_pep_seq_mass = the_pep.pep_mass
     
     
     df_current['correct_mass1'] = df_current.apply(correct_mass_calc1, axis=1)
@@ -301,7 +301,7 @@ def data_classify(row, the_pep):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "ME14_3+.csv"
+    csv_data = "ME4_2+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
@@ -336,6 +336,10 @@ if __name__ == "__main__":
     print(df_y)
     print(df_x)
     
+    the_length = len(pep.AA_array)
+    b_list = b_y_graph.create_annotation_list_from_df(df_x, the_length, b_y_graph.neutral_loss_colors)
+    y_list = b_y_graph.create_annotation_list_from_df(df_y, the_length, b_y_graph.neutral_loss_colors)
+    b_y_graph.plot_peptide_fragmentation(pep.seq, annotations=b_list, y_line_annotations = y_list, color_map=b_y_graph.neutral_loss_colors, show=True)
     
 
     print("--- Parsed Results ---")

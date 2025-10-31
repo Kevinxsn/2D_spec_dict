@@ -353,14 +353,14 @@ def create_annotation_list_from_df(df, peptide_length, color_map):
 
 neutral_loss_colors = {
     'No Loss': '#7f7f7f',        # neutral gray
-    'H2O': '#1f77b4',            # blue (water)
+    '(H2O)': '#1f77b4',            # blue (water)
     '2(H2O)': '#aec7e8',         # lighter blue (double water)
-    'NH3': '#2ca02c',            # green (ammonia)
+    '(NH3)': '#2ca02c',            # green (ammonia)
     'NH3-H2O': '#98df8a',        # lighter green (mixed loss)
     'H2O-NH3': '#98df8a',        # same as above for symmetry
     'CH3NH2': '#ff7f0e',         # orange (methylamine)
     'CH3-NH2': '#ff7f0e',        # same as above (alternate notation)
-    'CH3NH2-NH3': '#ffbb78',     # light orange (combined loss)
+    '2(NH3)': '#ffbb78',     # light orange (combined loss)
     'HCOH-H2O': '#8c564b',       # brown (formaldehyde + water)
     'HN=C=N-CH3': '#9467bd',     # purple (complex nitrogen loss)
     'HN=C=NH-2(H2O)': '#c5b0d5', # light lavender (related nitrogen loss)
