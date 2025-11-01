@@ -301,7 +301,7 @@ def data_classify(row, the_pep):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "ME4_2+.csv"
+    csv_data = "UN15_2+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
@@ -339,9 +339,12 @@ if __name__ == "__main__":
     the_length = len(pep.AA_array)
     b_list = b_y_graph.create_annotation_list_from_df(df_x, the_length, b_y_graph.neutral_loss_colors)
     y_list = b_y_graph.create_annotation_list_from_df(df_y, the_length, b_y_graph.neutral_loss_colors)
-    b_y_graph.plot_peptide_fragmentation(pep.seq, annotations=b_list, y_line_annotations = y_list, color_map=b_y_graph.neutral_loss_colors, show=True)
+    #b_y_graph.plot_peptide_fragmentation(pep.seq, annotations=b_list, y_line_annotations = y_list, color_map=b_y_graph.neutral_loss_colors, show=True)
+    #print(np.mean(results['mass_difference1'] + results['mass_difference1']))
     
 
     print("--- Parsed Results ---")
-    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification', 'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1']])
+    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification', 'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1', 'mass_difference2']])
+    print(np.mean(results['mass_difference1'] + results['mass_difference1']))
+    
     print("\n--- End of Results ---")

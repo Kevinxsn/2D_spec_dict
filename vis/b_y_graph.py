@@ -356,8 +356,8 @@ neutral_loss_colors = {
     '(H2O)': '#1f77b4',            # blue (water)
     '2(H2O)': '#aec7e8',         # lighter blue (double water)
     '(NH3)': '#2ca02c',            # green (ammonia)
-    'NH3-H2O': '#98df8a',        # lighter green (mixed loss)
-    'H2O-NH3': '#98df8a',        # same as above for symmetry
+    '(NH3) + (H2O)': '#98df8a',        # lighter green (mixed loss)
+    '(NH3) + (H2O)': '#98df8a',        # same as above for symmetry
     'CH3NH2': '#ff7f0e',         # orange (methylamine)
     'CH3-NH2': '#ff7f0e',        # same as above (alternate notation)
     '2(NH3)': '#ffbb78',     # light orange (combined loss)
