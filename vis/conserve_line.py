@@ -168,7 +168,7 @@ for index, each_row in df.iterrows():
     if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns):
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
-        f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + ' ' + f"({str(each_row['ranking'])})"
+        f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + '\n' + f"{str(int(each_row['ranking']))}"
         
         #high_light.append(int(each_row['ranking']))
         highlight_data[int(each_row['ranking'])] = each_row['conserve_line']
@@ -239,6 +239,7 @@ def combine_rows_inplace(df, idx1, idx2, keep='first'):
 
 reuslt_df = combine_rows_inplace(reuslt_df, '(NH3) + (H2O)', '(H2O) + (NH3)')
 print(reuslt_df)
+reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
 df_display = reuslt_df.copy().astype(str)
 known_components = reuslt_df.index.tolist()
