@@ -11,9 +11,10 @@ import util
 import os
 import data_parse
 import matplotlib.patches as mpatches
+import neutral_loss_mass
 
 
-data = 'ME9_3+'
+data = 'ME8_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -41,7 +42,23 @@ df = results
 df['ranking'] = df['Index']
 
 LETTER_ORDER = {ch: i for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz")}
-rows = ['Parent','(NH3)','(H2O)', '(NH3) + (H2O)','(H2O) + (NH3)', 'a', '2(H2O)', '2(NH3)']
+rows = ['Parent','(NH3)','(H2O)', '(NH3)-(H2O)','(H2O)-(NH3)', 'a', '2(H2O)', '2(NH3)']
+conserve_line_mass_dict = {'Parent': pep.pep_mass, 'a': pep.pep_mass - 28.0106}
+for i in rows:
+    if i not in conserve_line_mass_dict:
+        conserve_line_mass_dict[i] = pep.pep_mass - neutral_loss_mass.mass_of_loss(i)
+print(conserve_line_mass_dict)
+
+def classify_conserve_line(row):
+    the_mass = row['chosen_sum']
+    for i in conserve_line_mass_dict:
+        if the_mass < conserve_line_mass_dict[i] + 1 and the_mass > conserve_line_mass_dict[i] - 1:
+            return i
+    else:
+        return None
+
+df['conserve_line'] = df.apply(classify_conserve_line, axis = 1)
+    
 
 def combine_rows(row1, row2):
     return [
@@ -126,7 +143,8 @@ def create_mass_conserve_line(row):
         loss2 = 'a' + '+' + loss2 if loss2 != '' else 'a'
         
     elif loss1 != '' and loss2 != '':
-        combined_loss = loss1 + ' + ' +loss2
+        #combined_loss = loss1 + ' + ' +loss2
+        combined_loss = loss1 + '-' +loss2
 
     else:
         combined_loss = loss1 + loss2
@@ -157,15 +175,33 @@ reuslt_df = pd.DataFrame(index=rows, columns=columns)
 #high_light = []
 highlight_data = {}
 
+total_count = {i:0 for i in rows}
+unexplained_count = {i:0 for i in rows}
 
 for index, each_row in df.iterrows():
+    
+    rounded_sum = round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)
     the_column = -1
     if (type(each_row['ion1']) == str and type(each_row['ion2']) == str):
         the_column = [each_row['ion1'], each_row['ion2']]
         the_column.sort()
         the_column = the_column[0] + the_column[1]
         the_column = the_column.replace('a', 'b')
-    if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns):
+    
+    for i in conserve_line_mass_dict:
+        if each_row['chosen_sum'] < conserve_line_mass_dict[i] + 1 and each_row['chosen_sum'] > conserve_line_mass_dict[i] - 1:
+            total_count[i] += 1
+            if rounded_sum >= 1 and the_column in reuslt_df.columns:
+                #if rounded_sum >= 1:
+                #    print('large round')
+                #if each_row['ion1'] == '???' or each_row['ion2'] == '???':
+                #    print('becuase ???')
+                unexplained_count[i] += 1 
+            elif each_row['ion1'] == '???' or each_row['ion2'] == '???':
+                unexplained_count[i] += 1 
+        
+        
+    if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns) and rounded_sum < 1:
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
         f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + '\n' + f"{str(int(each_row['ranking']))}"
@@ -177,14 +213,19 @@ reuslt_df = reuslt_df.fillna('--')
 
 reuslt_df['Row_Count'] = (reuslt_df != '--').sum(axis=1)
 
+
 # Count valid entries in each column
 reuslt_df.loc['Col_Count'] = (reuslt_df != '--').sum(axis=0)
+
+
 
 total_valid = reuslt_df['Row_Count'][:-1].sum()
 reuslt_df.loc['Col_Count', 'Row_Count'] = total_valid
 
 
 
+print(total_count)
+print(unexplained_count)
 
 index_labels = ['Parent', 'NH3', 'H2O', 'NH3 + H2O', 'H2O + NH3', 'a']
 
@@ -195,8 +236,8 @@ color_map = {
     '(H2O)': '#1f77b4',            # blue (water)
     '2(H2O)': '#aec7e8',         # lighter blue (double water)
     '(NH3)': '#2ca02c',            # green (ammonia)
-    '(NH3) + (H2O)': '#98df8a',        # lighter green (mixed loss)
-    '(H2O) + (NH3)': '#98df8a',        # same as above for symmetry
+    '(NH3)-(H2O)': '#98df8a',        # lighter green (mixed loss)
+    '(H2O)-(NH3)': '#98df8a',        # same as above for symmetry
     'CH3-NH2': '#ff7f0e',        # same as above (alternate notation)
     '2(NH3)': '#ffbb78',     # light orange (combined loss)
     'a': '#CD5C5C'
@@ -237,7 +278,9 @@ def combine_rows_inplace(df, idx1, idx2, keep='first'):
     # df.reset_index(drop=True, inplace=True)
 
 
-reuslt_df = combine_rows_inplace(reuslt_df, '(NH3) + (H2O)', '(H2O) + (NH3)')
+reuslt_df = combine_rows_inplace(reuslt_df, '(NH3)-(H2O)', '(H2O)-(NH3)')
+unexplained_count['Col_Count'] = sum(unexplained_count[v] for v in reuslt_df.index[:-1])
+reuslt_df['Unexplained_Count'] = pd.Series(unexplained_count)
 print(reuslt_df)
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 

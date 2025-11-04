@@ -261,7 +261,8 @@ def process_ion_dataframe(df, the_pep):
 
     df_current.loc[df_current['type2'] == 'y', ['y_ion', 'y_mz']] = df_current.loc[df_current['type2'] == 'y', ['ion2', 'mass2']].values
     df_current.loc[df_current['type2'] == 'b', ['b_ion', 'b_mz']] = df_current.loc[df_current['type2'] == 'b', ['ion2', 'mass2']].values
-
+    
+    
 
     
     return df_current
@@ -301,7 +302,7 @@ def data_classify(row, the_pep):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "UN15_2+.csv"
+    csv_data = "ME9_2+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
@@ -345,6 +346,6 @@ if __name__ == "__main__":
 
     print("--- Parsed Results ---")
     print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification', 'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1', 'mass_difference2']])
-    print(np.mean(results['mass_difference1'] + results['mass_difference1']))
+    print(np.mean(results['mass_difference1'] + results['mass_difference2']))
     
     print("\n--- End of Results ---")
