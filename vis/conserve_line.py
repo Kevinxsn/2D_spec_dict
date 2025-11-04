@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME8_3+'
+data = 'ME9_2+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -177,6 +177,8 @@ highlight_data = {}
 
 total_count = {i:0 for i in rows}
 unexplained_count = {i:0 for i in rows}
+abs_mass_difference = {i:[0,0] for i in rows}
+
 
 for index, each_row in df.iterrows():
     
@@ -204,15 +206,24 @@ for index, each_row in df.iterrows():
     if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns) and rounded_sum < 1:
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
-        f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + str(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)) + '\n' + f"{str(int(each_row['ranking']))}"
+        f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + f"({str(round(each_row['mass_difference1'], 2))}, {round(each_row['mass_difference2'], 2)})" + '\n' + f"{str(int(each_row['ranking']))}"
         
         #high_light.append(int(each_row['ranking']))
         highlight_data[int(each_row['ranking'])] = each_row['conserve_line']
+        abs_mass_difference[each_row['conserve_line']][0] += 1
+        abs_mass_difference[each_row['conserve_line']][1] += abs(each_row['mass_difference1'])
+        abs_mass_difference[each_row['conserve_line']][1] += abs(each_row['mass_difference2'])
         
 reuslt_df = reuslt_df.fillna('--')
 
 reuslt_df['Row_Count'] = (reuslt_df != '--').sum(axis=1)
 
+##calculate the mean of abs value of each mass deviatoin:
+for i in abs_mass_difference:
+    if abs_mass_difference[i][0] > 0:
+        abs_mass_difference[i] = round(abs_mass_difference[i][1] / abs_mass_difference[i][0], 2)
+    else:
+        abs_mass_difference[i] = 0
 
 # Count valid entries in each column
 reuslt_df.loc['Col_Count'] = (reuslt_df != '--').sum(axis=0)
@@ -280,7 +291,10 @@ def combine_rows_inplace(df, idx1, idx2, keep='first'):
 
 reuslt_df = combine_rows_inplace(reuslt_df, '(NH3)-(H2O)', '(H2O)-(NH3)')
 unexplained_count['Col_Count'] = sum(unexplained_count[v] for v in reuslt_df.index[:-1])
+abs_mass_difference['Col_Count'] = round(np.mean([abs_mass_difference[i] for i in reuslt_df.index[:-1]]), 2)
+
 reuslt_df['Unexplained_Count'] = pd.Series(unexplained_count)
+reuslt_df['abs average mass difference'] = pd.Series(abs_mass_difference)
 print(reuslt_df)
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
