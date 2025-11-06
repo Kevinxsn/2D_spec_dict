@@ -302,7 +302,7 @@ def data_classify(row, the_pep):
 
 if __name__ == "__main__":
     # 1. Define the CSV data as a string
-    csv_data = "ME9_2+.csv"
+    csv_data = "ME4_3+.csv"
     file_path = os.path.join(
         os.path.dirname(__file__),
         f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"

@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME9_2+'
+data = 'ME14_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -177,12 +177,13 @@ highlight_data = {}
 
 total_count = {i:0 for i in rows}
 unexplained_count = {i:0 for i in rows}
+unexplained_list = {i:'' for i in rows}
 abs_mass_difference = {i:[0,0] for i in rows}
 
 
 for index, each_row in df.iterrows():
     
-    rounded_sum = round(each_row['mass_difference1'] + each_row['mass_difference2'], 2)
+    rounded_sum = abs(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2))
     the_column = -1
     if (type(each_row['ion1']) == str and type(each_row['ion2']) == str):
         the_column = [each_row['ion1'], each_row['ion2']]
@@ -194,16 +195,18 @@ for index, each_row in df.iterrows():
         if each_row['chosen_sum'] < conserve_line_mass_dict[i] + 1 and each_row['chosen_sum'] > conserve_line_mass_dict[i] - 1:
             total_count[i] += 1
             if rounded_sum >= 1 and the_column in reuslt_df.columns:
-                #if rounded_sum >= 1:
-                #    print('large round')
-                #if each_row['ion1'] == '???' or each_row['ion2'] == '???':
-                #    print('becuase ???')
+                
+                unexplained_list[i] += f"{round(each_row['chosen_sum'] - conserve_line_mass_dict[i], 2)}({int(each_row['ranking'])}) \n"
                 unexplained_count[i] += 1 
             elif each_row['ion1'] == '???' or each_row['ion2'] == '???':
+                unexplained_list[i] += f"{round(each_row['chosen_sum'] - conserve_line_mass_dict[i], 2)}({int(each_row['ranking'])}) \n"
                 unexplained_count[i] += 1 
         
         
     if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns) and rounded_sum < 1:
+        
+        print(each_row['mass_difference1'], each_row['mass_difference2'],rounded_sum, )
+        
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\
         f"({each_row['charge_first']} , {each_row['charge_second']})" +' \n ' + f"({str(round(each_row['mass_difference1'], 2))}, {round(each_row['mass_difference2'], 2)})" + '\n' + f"{str(int(each_row['ranking']))}"
@@ -295,6 +298,8 @@ abs_mass_difference['Col_Count'] = round(np.mean([abs_mass_difference[i] for i i
 
 reuslt_df['Unexplained_Count'] = pd.Series(unexplained_count)
 reuslt_df['abs average mass difference'] = pd.Series(abs_mass_difference)
+reuslt_df['unxplained pairs'] = pd.Series(unexplained_list)
+
 print(reuslt_df)
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
