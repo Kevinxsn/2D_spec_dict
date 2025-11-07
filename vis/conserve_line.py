@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME14_3+'
+data = 'ME14_2+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -154,10 +154,16 @@ def create_mass_conserve_line(row):
 
 df['conserve_line'] = df.apply(create_mass_conserve_line, axis=1)
 
+ion_pair_mass_dict = {}
+
 def peptie_arrange(length):
     result = []
     for i in range(1, length):
         result.append(f'b{i}y{length - i}')
+        each_b_mass = round(pep.ion_mass(f'b{i}'),2)
+        each_y_mass = round(pep.ion_mass(f'y{length - i}'),2)
+        ion_pair_mass_dict[f'b{i}y{length - i}'] = f'({each_b_mass}, {each_y_mass})'
+        
     return result
 
 #rows = ['Parent','NH3','H2O', 'NH3 + H2O','H2O + NH3', 'a']
@@ -168,6 +174,8 @@ columns = peptie_arrange(the_length)
 
 df['loss_first_m'] = df['loss_first'].fillna(df['ion_first']).fillna('undefined')
 df['loss_second_m'] = df['loss_second'].fillna(df['ion_second']).fillna('undefined')
+
+print(ion_pair_mass_dict)
 
 reuslt_df = pd.DataFrame(index=rows, columns=columns)
 
@@ -296,9 +304,19 @@ reuslt_df = combine_rows_inplace(reuslt_df, '(NH3)-(H2O)', '(H2O)-(NH3)')
 unexplained_count['Col_Count'] = sum(unexplained_count[v] for v in reuslt_df.index[:-1])
 abs_mass_difference['Col_Count'] = round(np.mean([abs_mass_difference[i] for i in reuslt_df.index[:-1]]), 2)
 
-reuslt_df['Unexplained_Count'] = pd.Series(unexplained_count)
-reuslt_df['abs average mass difference'] = pd.Series(abs_mass_difference)
-reuslt_df['unxplained pairs'] = pd.Series(unexplained_list)
+reuslt_df['Unexplained Count'] = pd.Series(unexplained_count)
+reuslt_df['Abs Average Mass Difference'] = pd.Series(abs_mass_difference)
+reuslt_df['Unexplained Pairs'] = pd.Series(unexplained_list)
+reuslt_df.loc['Ion Mass'] = ion_pair_mass_dict
+reuslt_df.loc['Ion Mass'] = reuslt_df.loc['Ion Mass'].fillna(0)
+
+reuslt_df['Unexplained Count'] = (
+    reuslt_df['Unexplained Count'].fillna(0).astype(int)
+)
+reuslt_df['Row_Count'] = (
+    reuslt_df['Row_Count'].fillna(0).astype(int)
+)
+
 
 print(reuslt_df)
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)

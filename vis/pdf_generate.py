@@ -21,7 +21,7 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet
 
-data = 'ME14_3+'
+data = 'ME4_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -125,7 +125,7 @@ def create_report_with_reportlab(pdf_path, image_path, select_data_frame):
 
     # 2. ADD TITLE
     # Create a Paragraph object for the title with a specific style.
-    title = Paragraph(peptide_header, styles['h1'])
+    title = Paragraph(data + ':' + peptide_header, styles['h1'])
     story.append(title)
 
     # Add a spacer for some vertical whitespace.
@@ -202,18 +202,27 @@ def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames)
     styles = getSampleStyleSheet()
 
     # 2. ADD TITLE
-    title = Paragraph(peptide_header, styles['h1'])
+    title = Paragraph(data+':'+peptide_header, styles['h1'])
     story.append(title)
     story.append(Spacer(1, 0.2 * inch))
 
     # 3. ADD GRAPHS (LOOPING THROUGH THE LIST)
     # The drawable width of the page (11 inches wide - 2 inches of margin)
     drawable_width = landscape(letter)[0] - 2 * inch
-    for image_path in image_paths:
+    MAX_FRAME_HEIGHT = 450.0
+    
+    img = Image(image_paths[0], width=drawable_width, height=drawable_width / 2.5)
+    story.append(img)
+    #story.append(Spacer(1, 0.2 * inch))
+    story.append(Spacer(1, 2 * inch))
+    
+    for image_path in image_paths[1:]:
         img = Image(image_path, width=drawable_width, height=drawable_width / 2.5) # Maintain aspect ratio
         #img = Image(image_path, width=drawable_width)
+        #img = Image(image_path, width=drawable_width, height=MAX_FRAME_HEIGHT)
         story.append(img)
-        story.append(Spacer(1, 0.2 * inch))
+        #story.append(Spacer(1, 0.5 * inch))
+        story.append(Spacer(2, 1 * inch))
 
     # 4. ADD DATA TABLES (LOOPING THROUGH THE LIST)
     # Define a reusable table style
@@ -232,7 +241,8 @@ def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames)
 
     for i, df in enumerate(data_frames):
         # Add a sub-header for each table
-        story.append(Paragraph(f"Detailed Data - Table {i+1}", styles['h2']))
+        #story.append(Paragraph(f"Detailed Data - Table {i+1}", styles['h2']))
+        story.append(Paragraph(f"Table {data}", styles['h2']))
         story.append(Spacer(1, 0.1 * inch))
 
         # Convert dataframe to a list of lists
@@ -255,8 +265,15 @@ def create_multi_item_report(pdf_path, peptide_header, image_paths, data_frames)
 selected_df = df[['n','classification', 'ion1', 'loss1', 'mass1', 'correct_mass1','mass_difference1', 'ion2', 'loss2', 'mass2', 'correct_mass2', 'mass_difference2','chosen_sum']]
 selected_df = selected_df.round(2)
 
-list_of_image_paths = [graph1_path, graph2_path]
-list_of_dataframes = [df_x, df_y, selected_df]
+#list_of_image_paths = [graph1_path, graph2_path]
+#list_of_dataframes = [df_x, df_y, selected_df]
+
+
+#graph3_path = f'vis/temp/{data}_graph3.png'
+#graph4_path = f'vis/temp/{data}_graph4.png'
+
+list_of_image_paths = [graph1_path]
+list_of_dataframes = [selected_df]
 
 create_multi_item_report(
     pdf_path=f'vis/temp/{data}.pdf',
