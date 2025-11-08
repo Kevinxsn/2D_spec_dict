@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME14_2+'
+data = 'ME9_2+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -191,7 +191,7 @@ abs_mass_difference = {i:[0,0] for i in rows}
 
 for index, each_row in df.iterrows():
     
-    rounded_sum = abs(round(each_row['mass_difference1'] + each_row['mass_difference2'], 2))
+    rounded_sum = abs((round( abs(each_row['mass_difference1']) + abs(each_row['mass_difference2']), 2)))
     the_column = -1
     if (type(each_row['ion1']) == str and type(each_row['ion2']) == str):
         the_column = [each_row['ion1'], each_row['ion2']]
@@ -200,7 +200,7 @@ for index, each_row in df.iterrows():
         the_column = the_column.replace('a', 'b')
     
     for i in conserve_line_mass_dict:
-        if each_row['chosen_sum'] < conserve_line_mass_dict[i] + 1 and each_row['chosen_sum'] > conserve_line_mass_dict[i] - 1:
+        if each_row['chosen_sum'] < conserve_line_mass_dict[i] + 0.5 and each_row['chosen_sum'] > conserve_line_mass_dict[i] - 0.5:
             total_count[i] += 1
             if rounded_sum >= 1 and the_column in reuslt_df.columns:
                 
@@ -321,8 +321,41 @@ reuslt_df['Row_Count'] = (
 print(reuslt_df)
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
+
+
 df_display = reuslt_df.copy().astype(str)
 known_components = reuslt_df.index.tolist()
+
+def ion_pair_binary(df, exclude_cols=None):
+    """
+    Given a dataframe, returns a binary array (list of 0/1)
+    where 1 means there is a pair (non-empty) in that ion column.
+    
+    Parameters:
+        df (pd.DataFrame): input dataframe
+        exclude_cols (list): optional list of column names to ignore at the end
+
+    Returns:
+        np.ndarray: binary array (0/1)
+    """
+    # Determine which columns represent ion pairs
+    if exclude_cols is None:
+        exclude_cols = ['Row_Count', 'Unexplained Count', 'Abs Average Mass Difference',
+                        'Unexplained Pairs', 'Ion Mass']
+
+    ion_cols = [c for c in df.columns if c not in exclude_cols]
+
+    # Create binary array: 1 if non-empty / not NaN / not '--'
+    binary = df[ion_cols].applymap(
+        lambda x: 0 if pd.isna(x) or str(x).strip() in ['--', '', 'nan'] else 1
+    ).values
+
+    return binary
+
+binary_explained_array = ion_pair_binary(reuslt_df.iloc[:1], exclude_cols = ['Row_Count', 'Unexplained Count', 'Abs Average Mass Difference', 'Unexplained Pairs'])[0]
+binary_explained_array = [int(i) for i in binary_explained_array]
+#binary_explained_array.append(1) if binary_explained_array[-1] == 1 else binary_explained_array.append(0)
+binary_explained_array = "".join(str(item) for item in binary_explained_array)
 
 
 def get_components(label_string):
@@ -480,6 +513,12 @@ def plot_numbered_dots(highlight_data, color_map, data_variable_name):
     plt.close()
 
 
+
 #plot_numbered_dots(high_light)
 plot_numbered_dots(highlight_data, color_map, data)
 print("Numbered dots plot saved as numbered_dots.png")
+
+print(data, ':', sequence)
+print('binary array:',binary_explained_array)
+print('total count:',reuslt_df.iloc[0]['Row_Count'] + reuslt_df.iloc[0]['Unexplained Count'])
+print('unexplained count:',reuslt_df.iloc[0]['Unexplained Count'])

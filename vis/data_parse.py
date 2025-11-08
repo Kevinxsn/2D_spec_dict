@@ -301,51 +301,64 @@ def data_classify(row, the_pep):
 
 
 if __name__ == "__main__":
-    # 1. Define the CSV data as a string
-    csv_data = "ME4_3+.csv"
-    file_path = os.path.join(
-        os.path.dirname(__file__),
-        f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
-    )
-    file_path = os.path.abspath(file_path) 
-    
-    ## Store sequence into peptide class
-    sequence = util.name_ouput(csv_data)
-    print(sequence)
-    csv_data = file_path
-    pep = peptide.Pep(sequence)
-    df = pd.read_csv(csv_data)
-    
-    
-    ## Choose the first interpertation
-    df = df[df['Index'].notna()]
-    results = process_ion_dataframe(df.head(50), pep)
-    
-    results['classification'] = results.apply(data_classify, args=(pep,), axis=1)
-    #print(results)
-    
-    the_list = []
-    the_y_list = []
-    
-    results['loss1'] = results['loss1'].replace({None: np.nan})
-    results['loss2'] = results['loss2'].replace({None: np.nan})
-    
-    
-    df_y = b_y_graph.ion_data_organizer_y(results, sequence)
-    df_x = b_y_graph.ion_data_organizer_d(results, sequence)
-    
-    print(df_y)
-    print(df_x)
-    
-    the_length = len(pep.AA_array)
-    b_list = b_y_graph.create_annotation_list_from_df(df_x, the_length, b_y_graph.neutral_loss_colors)
-    y_list = b_y_graph.create_annotation_list_from_df(df_y, the_length, b_y_graph.neutral_loss_colors)
-    #b_y_graph.plot_peptide_fragmentation(pep.seq, annotations=b_list, y_line_annotations = y_list, color_map=b_y_graph.neutral_loss_colors, show=True)
-    #print(np.mean(results['mass_difference1'] + results['mass_difference1']))
-    
+    # List of CSV filenames
+    csv_files = [
+        "ME4_3+.csv",
+        "ME4_2+.csv",
+        "ME14_3+.csv"
+        # add more here...
+    ]
 
-    print("--- Parsed Results ---")
-    print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification', 'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1', 'mass_difference2']])
-    print(np.mean(results['mass_difference1'] + results['mass_difference2']))
-    
-    print("\n--- End of Results ---")
+    for csv_data in csv_files:
+        print(f"\n=== Processing file: {csv_data} ===")
+
+        # Build file path
+        file_path = os.path.join(
+            os.path.dirname(__file__),
+            f"../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
+        )
+        file_path = os.path.abspath(file_path)
+
+        # 1️⃣ Store sequence into peptide class
+        sequence = util.name_ouput(csv_data)
+        print(f"Sequence: {sequence}")
+
+        pep = peptide.Pep(sequence)
+        df = pd.read_csv(file_path)
+
+        # 2️⃣ Filter and process
+        df = df[df['Index'].notna()]
+        results = process_ion_dataframe(df.head(50), pep)
+        results['classification'] = results.apply(data_classify, args=(pep,), axis=1)
+
+        # 3️⃣ Replace missing values for neutral losses
+        results['loss1'] = results['loss1'].replace({None: np.nan})
+        results['loss2'] = results['loss2'].replace({None: np.nan})
+
+        # 4️⃣ Organize b- and y-ion data
+        df_y = b_y_graph.ion_data_organizer_y(results, sequence)
+        df_x = b_y_graph.ion_data_organizer_d(results, sequence)
+
+        print("\n--- y-ion Data ---")
+        print(df_y)
+        print("\n--- b-ion Data ---")
+        print(df_x)
+
+        # 5️⃣ Generate annotation lists
+        the_length = len(pep.AA_array)
+        b_list = b_y_graph.create_annotation_list_from_df(df_x, the_length, b_y_graph.neutral_loss_colors)
+        y_list = b_y_graph.create_annotation_list_from_df(df_y, the_length, b_y_graph.neutral_loss_colors)
+
+        # Optional: visualize
+        # b_y_graph.plot_peptide_fragmentation(pep.seq, annotations=b_list,
+        #     y_line_annotations=y_list, color_map=b_y_graph.neutral_loss_colors, show=True)
+
+        # 6️⃣ Print summary statistics
+        print("\n--- Parsed Results ---")
+        print(results[['ion1', 'loss1', 'ion2', 'loss2', 'classification',
+                       'y_ion', 'b_ion', 'y_mz', 'mass1', 'mass_difference1', 'mass_difference2']])
+
+        mean_diff = np.mean(results['mass_difference1'] + results['mass_difference2'])
+        print(f"Mean mass difference: {mean_diff:.6f}")
+
+        print("\n--- End of Results ---\n" + "="*60)
