@@ -83,7 +83,7 @@ def merge_close_values(sorted_array, threshold, method="first"):
 
 AA_MASSES = {
     'G': 57.021464, 'A': 71.037114, 'S': 87.032028, 'P': 97.052764,
-    'V': 99.068414, 'T': 101.047679, 'C': 103.009185, 'I/L': 113.084064,
+    'V': 99.068414, 'T': 101.047679, 'C': 103.009185, '(I/L)': 113.084064,
     'N': 114.042927, 'D': 115.026943, 'Q': 128.058578,
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
@@ -94,6 +94,19 @@ for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
     mass_sum = AA_MASSES[aa1] + AA_MASSES[aa2]
     # Store with a combined label, e.g., "A+G"
     DOUBLE_AA_MASSES[f"{aa1}+{aa2}"] = mass_sum
+    
+def build_triple_aa_masses(AA_MASSES: dict) -> dict:
+    """
+    Return a dict like {"A+G+S": mass_sum, ...} for all 3-AA combos (with replacement).
+    """
+    triple = {}
+    # sort keys for stable, deterministic labels
+    keys = sorted(AA_MASSES.keys())
+    for aa1, aa2, aa3 in combinations_with_replacement(keys, 3):
+        label = f"{aa1}+{aa2}+{aa3}"
+        triple[label] = AA_MASSES[aa1] + AA_MASSES[aa2] + AA_MASSES[aa3]
+    return triple
+TRIPLE_AA_MASSES = build_triple_aa_masses(AA_MASSES)
 
 def cluster_mass_dict(
     name_to_mass: Dict[str, float],
@@ -159,7 +172,7 @@ def cluster_mass_dict(
     return merged_dict, inverse_map, groups
 
     
-def find_all_connections(peaks, tolerance=0.02, merge_double = False):
+def find_all_connections(peaks, tolerance=0.005, merge_double = False):
     """
     Identifies pairs of peaks separated by single AA mass OR double AA mass.
     Returns two separate lists of connections: (single_conns, double_conns)
@@ -168,7 +181,7 @@ def find_all_connections(peaks, tolerance=0.02, merge_double = False):
     single_conns = []
     double_conns = []
     if merge_double:
-        double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=0.01, method="mean")
+        double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
     else:
         double_dict = DOUBLE_AA_MASSES
     for i in range(len(peaks)):
@@ -467,16 +480,16 @@ def build_mass_list(
 
 
 if __name__ == "__main__":
-    data = 'ME9_3+'
+    data = 'ME9_2+'
     my_peaks, sequence = build_mass_list(data)
     
     print(my_peaks)
     my_peaks = merge_close_values(my_peaks, threshold=0.001)
     print(my_peaks)
-    s_conns, d_conns = find_all_connections(my_peaks, tolerance=0.02)
+    s_conns, d_conns = find_all_connections(my_peaks, tolerance=0.0005, merge_double=True)
 
     
     # Define the sequence you want to find
-    seq_to_find = ['S', 'F', 'I/L', 'N', 'E', 'E'] 
+    seq_to_find = ['S', 'F', '(I/L)', 'N', 'E', 'E'] 
     # Call WITH the new argument
     plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find, seq=sequence, show_graph=False, save_path=f'vis_connect/connected_graph/{data}.png')
