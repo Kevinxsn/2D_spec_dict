@@ -14,10 +14,11 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 from matplotlib.patches import Arc
 from itertools import combinations_with_replacement
+from typing import Dict, List, Tuple, Literal
 
 
 proton = 1.007276
-
+RepMethod = Literal["first", "last", "mean", "median"]
 
 def merge_close_values(sorted_array, threshold, method="first"):
     """
@@ -86,15 +87,79 @@ AA_MASSES = {
     'N': 114.042927, 'D': 115.026943, 'Q': 128.058578,
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
+    'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
     mass_sum = AA_MASSES[aa1] + AA_MASSES[aa2]
     # Store with a combined label, e.g., "A+G"
     DOUBLE_AA_MASSES[f"{aa1}+{aa2}"] = mass_sum
+
+def cluster_mass_dict(
+    name_to_mass: Dict[str, float],
+    threshold: float,
+    method: RepMethod = "mean",
+) -> Tuple[Dict[str, float], Dict[str, str], List[List[Tuple[str, float]]]]:
+    """
+    Merge keys whose masses are within `threshold` (Da) of each other.
+    Returns:
+      merged_dict: { "A+B/C+D": representative_mass, ... }
+      inverse_map: { "A+B": "A+B/C+D", "C+D": "A+B/C+D", ... }
+      groups:      [[(name, mass), ...], ...]  # raw groups for inspection
+
+    Notes
+    -----
+    - Input order doesn’t matter; clustering uses sorted-by-mass order.
+    - Groups are formed by chaining: consecutive items whose DIFFERENCE
+      from the previous in the sorted order is ≤ threshold end up in the same group.
+    - `method` selects the representative mass for each merged key.
+    """
+    if not name_to_mass:
+        return {}, {}, []
+
+    # sort by mass, then by name for stability
+    items = sorted(name_to_mass.items(), key=lambda kv: (kv[1], kv[0]))
+
+    groups: List[List[Tuple[str, float]]] = []
+    cur: List[Tuple[str, float]] = [items[0]]
+
+    for name, mass in items[1:]:
+        # Compare to the last element in the current group (consecutive proximity)
+        if abs(mass - cur[-1][1]) <= threshold:
+            cur.append((name, mass))
+        else:
+            groups.append(cur)
+            cur = [(name, mass)]
+    groups.append(cur)
+
+    def representative(vals: List[float]) -> float:
+        if method == "first":
+            return vals[0]
+        if method == "last":
+            return vals[-1]
+        if method == "median":
+            n = len(vals)
+            mid = n // 2
+            return vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2
+        # default: mean
+        return sum(vals) / len(vals)
+
+    merged_dict: Dict[str, float] = {}
+    inverse_map: Dict[str, str] = {}
+
+    for group in groups:
+        names = [n for n, _ in group]
+        masses = [m for _, m in group]
+        merged_key = "/".join(names)   # e.g., "A+B/C+D/..."
+        rep_mass = representative(masses)
+        merged_dict[merged_key] = rep_mass
+        for n in names:
+            inverse_map[n] = merged_key
+
+    return merged_dict, inverse_map, groups
+
     
-    
-def find_all_connections(peaks, tolerance=0.02):
+def find_all_connections(peaks, tolerance=0.02, merge_double = False):
     """
     Identifies pairs of peaks separated by single AA mass OR double AA mass.
     Returns two separate lists of connections: (single_conns, double_conns)
@@ -102,7 +167,10 @@ def find_all_connections(peaks, tolerance=0.02):
     peaks = sorted(peaks)
     single_conns = []
     double_conns = []
-
+    if merge_double:
+        double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=0.01, method="mean")
+    else:
+        double_dict = DOUBLE_AA_MASSES
     for i in range(len(peaks)):
         for j in range(i + 1, len(peaks)):
             mass_diff = peaks[j] - peaks[i]
@@ -116,15 +184,19 @@ def find_all_connections(peaks, tolerance=0.02):
                 if abs(mass_diff - aa_mass) <= tolerance:
                     single_conns.append((peaks[i], peaks[j], aa))
 
+            
             # 2. Check for Double AA matches
-            for label, double_mass in DOUBLE_AA_MASSES.items():
+            for label, double_mass in double_dict.items():
                  if abs(mass_diff - double_mass) <= tolerance:
                     double_conns.append((peaks[i], peaks[j], label))
 
     return single_conns, double_conns
 
 
-def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence=None):
+
+
+
+def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence=None, seq = '', show_graph = True, save_path = False):
     """
     Visualizes peaks with single AA arcs (above axis) and double AA arcs (below axis).
     Includes mass labels for each peak.
@@ -193,7 +265,7 @@ def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence
     
     num_peaks = len(peaks)
     for i, peak_mass in enumerate(peaks):
-        if i < 3 or i >= (num_peaks - 3):
+        if i < 15 or i >= (num_peaks - 3):
             label = f"{peak_mass:.2f}"
             ax.text(peak_mass, 0, label,
                     ha='right', va='top', fontsize=8,
@@ -277,9 +349,13 @@ def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence
     pad = (max(peaks) - min(peaks)) * 0.05
     ax.set_xlim(min(peaks) - pad, max(peaks) + pad)
 
-    plt.title(f"Mass Spec Connectivity\nTop: Single AA ({len(single_conns)}) | Bottom: Double AA ({len(double_conns)})", fontsize=14)
+    plt.title(f"Mass Spec Connectivity\nTop: Single AA ({len(single_conns)}) | Bottom: Double AA ({len(double_conns)}) \n {seq}", fontsize=14)
     plt.tight_layout()
-    plt.show()
+    if show_graph:
+        plt.show()
+    if save_path:
+        # Use bbox_inches='tight' to ensure the legend is included when saving.
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
 
 
@@ -289,7 +365,7 @@ def build_mass_list(
     base_dir: str = None,
     head_n: int = 50,
     conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)')
-) -> list:
+    ) -> list:
     """
     Given a dataset name like 'ME4_2+', read its annotated CSV, compute classifications,
     and return the unique sorted masses on the Parent conservation line.
@@ -361,6 +437,9 @@ def build_mass_list(
 
     # Collect masses from the Parent line
     df_parent = results[results["conserve_line"] == "Parent"]
+    # Suppose your DataFrame is named df
+    df_parent = df_parent.dropna(subset=['charge1'])
+    df_parent = df_parent.dropna(subset=['charge2'])
     print(df_parent)
     
     def mass_mul_charge(row):
@@ -383,18 +462,21 @@ def build_mass_list(
     print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
-    return mass_list
+    return mass_list, f'{data}: {sequence}'
 
 
 
 if __name__ == "__main__":
-    data = 'ME4_3+'
-    my_peaks = build_mass_list(data)
+    data = 'ME9_3+'
+    my_peaks, sequence = build_mass_list(data)
+    
     print(my_peaks)
     my_peaks = merge_close_values(my_peaks, threshold=0.001)
     print(my_peaks)
     s_conns, d_conns = find_all_connections(my_peaks, tolerance=0.02)
+
+    
     # Define the sequence you want to find
-    seq_to_find = ['I/L', 'I/L', 'A', 'N', 'Q', 'F', 'G', 'Y'] 
+    seq_to_find = ['S', 'F', 'I/L', 'N', 'E', 'E'] 
     # Call WITH the new argument
-    plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find)
+    plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find, seq=sequence, show_graph=False, save_path=f'vis_connect/connected_graph/{data}.png')
