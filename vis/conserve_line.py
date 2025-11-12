@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME9_2+'
+data = 'ME4_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -316,6 +316,19 @@ reuslt_df['Unexplained Count'] = (
 reuslt_df['Row_Count'] = (
     reuslt_df['Row_Count'].fillna(0).astype(int)
 )
+
+
+column_names = list(reuslt_df.columns)
+rename_column_names = {}
+
+for i in column_names:
+    if i[0] == 'b':
+        b_ion = re.findall(r'(b\d+|y\d+)', i)[0]
+        b_index = int(b_ion[1:])
+        rename_column_names[i] = f'{i}({pep.AA_array[b_index - 1]})'
+
+reuslt_df.rename(columns=rename_column_names, inplace=True)
+        
 
 
 print(reuslt_df)

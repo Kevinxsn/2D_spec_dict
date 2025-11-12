@@ -87,7 +87,7 @@ AA_MASSES = {
     'N': 114.042927, 'D': 115.026943, 'Q': 128.058578,
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
-    'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508
+    'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056,
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
@@ -180,10 +180,13 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
     peaks = sorted(peaks)
     single_conns = []
     double_conns = []
+    triple_conns = []
     if merge_double:
         double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
+        triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=tolerance, method="mean")
     else:
         double_dict = DOUBLE_AA_MASSES
+        triple_dict = TRIPLE_AA_MASSES
     for i in range(len(peaks)):
         for j in range(i + 1, len(peaks)):
             mass_diff = peaks[j] - peaks[i]
@@ -202,9 +205,12 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
             for label, double_mass in double_dict.items():
                  if abs(mass_diff - double_mass) <= tolerance:
                     double_conns.append((peaks[i], peaks[j], label))
+            
+            for label, triple_mass in triple_dict.items():
+                 if abs(mass_diff - triple_mass) <= tolerance:
+                    triple_conns.append((peaks[i], peaks[j], label))
 
-    return single_conns, double_conns
-
+    return single_conns, double_conns, triple_conns
 
 
 
@@ -478,18 +484,147 @@ def build_mass_list(
     return mass_list, f'{data}: {sequence}'
 
 
+# --- NEW: Pathfinding Function ---
+
+def find_all_paths(start_peak, all_connections):
+    """
+    Finds all possible paths (sequences of labels) starting from a given
+    start_peak, using the provided connections.
+
+    Args:
+        start_peak (float): The exact mass of the peak to start from.
+                            Must be one of the peaks used to generate connections.
+        all_connections (list): A *combined* list of all connection tuples
+                                [(start, end, label), ...] to be considered.
+
+    Returns:
+        list of lists: A list where each inner list is a path (sequence of labels).
+                       e.g., [['A', 'B'], ['A', 'C', 'D']]
+    """
+    
+    # --- Step 1: Build the adjacency list (graph_map) ---
+    # This map makes it fast to look up all outgoing edges from any peak.
+    graph_map = {}
+    for start, end, label in all_connections:
+        if start not in graph_map:
+            graph_map[start] = []
+        # Store the destination peak and the label of the edge
+        graph_map[start].append((end, label))
+
+    # --- Step 2: Define the recursive DFS helper function ---
+    def dfs_recursive(current_peak, current_path):
+        """
+        Recursively explores paths from the current_peak.
+        'current_path' holds the labels taken to get here.
+        'found_paths' is populated by the outer function.
+        """
+        
+        # Find all outgoing connections from the current peak
+        outgoing_edges = graph_map.get(current_peak, [])
+
+        # --- Base Case ---
+        # If there are no outgoing edges, this is the end of a path.
+        if not outgoing_edges:
+            # If the path is not empty, save a *copy* of it.
+            if current_path:
+                found_paths.append(list(current_path))
+            return # Stop recursion for this branch
+
+        # --- Recursive Step ---
+        # Explore each outgoing edge
+        for next_peak, label in outgoing_edges:
+            # 1. "Take" this path: Add the label
+            current_path.append(label)
+            
+            # 2. Recurse: Explore from the next peak
+            dfs_recursive(next_peak, current_path)
+            
+            # 3. "Backtrack": Remove the label so the loop can
+            #    explore the *next* outgoing edge from 'current_peak'.
+            current_path.pop()
+
+    # --- Step 3: Start the search ---
+    found_paths = []
+    # Call the recursive helper starting from the 'start_peak' with an empty path
+    dfs_recursive(start_peak, [])
+    
+    return found_paths
+
+# --- Example Usage ---
 
 if __name__ == "__main__":
-    data = 'ME9_2+'
+    # 1. Define our peaks
+    #    (100) --A(71.04)--> (171.04) --B(103.01)--> (274.05)
+    #      |                                          |
+    #      +--------A-B(174.05)----------------------+
+    #      |
+    #      +--------A-B-C(277.06)---------------------------> (377.06)
+    
+    peaks_list = [100.0, 171.04, 274.05, 377.06]
+    
+    # 2. Find all connections
+    s_conns, d_conns, t_conns = find_all_connections(peaks_list, tolerance=0.01)
+    
+    print("--- Connections Found ---")
+    print(f"Single: {s_conns}")
+    print(f"Double: {d_conns}")
+    print(f"Triple: {t_conns}")
+    print("-" * 25)
+
+    # 3. Combine the connections you want to search.
+    #    For this example, we'll search all of them.
+    all_conns = s_conns + d_conns + t_conns
+    
+    # 4. Define your starting point
+    start_from_peak = 100.0
+    
+    # 5. Find all paths
+    all_paths = find_all_paths(start_from_peak, all_conns)
+    
+    print(f"\n--- Paths found starting from {start_from_peak} ---")
+    if all_paths:
+        for i, path in enumerate(all_paths):
+            print(f"Path {i+1}: {' -> '.join(path)}")
+    else:
+        print("No paths found from this starting peak.")
+
+    # --- Example 2: Starting from a different peak ---
+    start_from_peak_2 = 171.04
+    all_paths_2 = find_all_paths(start_from_peak_2, all_conns)
+    
+    print(f"\n--- Paths found starting from {start_from_peak_2} ---")
+    if all_paths_2:
+        for i, path in enumerate(all_paths_2):
+            print(f"Path {i+1}: {' -> '.join(path)}")
+    else:
+        print("No paths found from this starting peak.")
+
+
+
+if __name__ == "__main__":
+    data = 'ME14_2+'
     my_peaks, sequence = build_mass_list(data)
     
     print(my_peaks)
     my_peaks = merge_close_values(my_peaks, threshold=0.001)
     print(my_peaks)
-    s_conns, d_conns = find_all_connections(my_peaks, tolerance=0.0005, merge_double=True)
+    s_conns, d_conns, t_conns = find_all_connections(my_peaks, tolerance=0.0005, merge_double=True)
 
-    
+
     # Define the sequence you want to find
-    seq_to_find = ['S', 'F', '(I/L)', 'N', 'E', 'E'] 
+    seq_to_find = ['A', '(I/L)', 'Q', '(I/L)', 'D', 'K+Ac/A+V/G+(I/L)', 'P', '(I/L)+M'] 
     # Call WITH the new argument
     plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find, seq=sequence, show_graph=False, save_path=f'vis_connect/connected_graph/{data}.png')
+    
+    all_conns = s_conns + d_conns + t_conns
+    start_from_peak = my_peaks[0]
+    all_paths = find_all_paths(start_from_peak, all_conns)
+    
+    print(f"\n--- Paths found starting from {start_from_peak} ---")
+    if all_paths:
+        for i, path in enumerate(all_paths):
+            print(f"Path {i+1}: {' -> '.join(path)}")
+    else:
+        print("No paths found from this starting peak.")
+
+    
