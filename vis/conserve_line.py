@@ -14,7 +14,7 @@ import matplotlib.patches as mpatches
 import neutral_loss_mass
 
 
-data = 'ME4_3+'
+data = 'PH15_2+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -42,7 +42,7 @@ df = results
 df['ranking'] = df['Index']
 
 LETTER_ORDER = {ch: i for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz")}
-rows = ['Parent','(NH3)','(H2O)', '(NH3)-(H2O)','(H2O)-(NH3)', 'a', '2(H2O)', '2(NH3)']
+rows = ['Parent','(NH3)','(H2O)', '(NH3)-(H2O)','(H2O)-(NH3)', 'a', '2(H2O)', '2(NH3)', '(H3PO4)']
 conserve_line_mass_dict = {'Parent': pep.pep_mass, 'a': pep.pep_mass - 28.0106}
 for i in rows:
     if i not in conserve_line_mass_dict:
@@ -262,7 +262,8 @@ color_map = {
     '(H2O)-(NH3)': '#98df8a',        # same as above for symmetry
     'CH3-NH2': '#ff7f0e',        # same as above (alternate notation)
     '2(NH3)': '#ffbb78',     # light orange (combined loss)
-    'a': '#CD5C5C'
+    'a': '#CD5C5C',
+    '(H3PO4)': "#A335E2"
 
 }
 

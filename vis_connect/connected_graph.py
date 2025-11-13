@@ -88,6 +88,7 @@ AA_MASSES = {
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
     'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056,
+    'E(nitro)': 129.042593 + 44.98508
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
@@ -107,6 +108,27 @@ def build_triple_aa_masses(AA_MASSES: dict) -> dict:
         triple[label] = AA_MASSES[aa1] + AA_MASSES[aa2] + AA_MASSES[aa3]
     return triple
 TRIPLE_AA_MASSES = build_triple_aa_masses(AA_MASSES)
+
+def build_quadra_aa_masses(AA_MASSES: dict) -> dict:
+    """
+    Return a dict like {"A+G+S+P": mass_sum, ...}
+    for all 4-AA combinations (with replacement).
+    """
+    quad = {}
+    keys = sorted(AA_MASSES.keys())   # deterministic order
+    
+    for aa1, aa2, aa3, aa4 in combinations_with_replacement(keys, 4):
+        label = f"{aa1}+{aa2}+{aa3}+{aa4}"
+        quad[label] = (
+            AA_MASSES[aa1] +
+            AA_MASSES[aa2] +
+            AA_MASSES[aa3] +
+            AA_MASSES[aa4]
+        )
+    return quad
+
+QUADRA_AA_MASSES = build_quadra_aa_masses(AA_MASSES)
+
 
 def cluster_mass_dict(
     name_to_mass: Dict[str, float],
@@ -181,12 +203,15 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
     single_conns = []
     double_conns = []
     triple_conns = []
+    quodra_conns = []
     if merge_double:
         double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
         triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=tolerance, method="mean")
+        quodra_dict, inv_map, groups = cluster_mass_dict(QUADRA_AA_MASSES, threshold=tolerance, method="mean")
     else:
         double_dict = DOUBLE_AA_MASSES
         triple_dict = TRIPLE_AA_MASSES
+        quodra_dict = QUADRA_AA_MASSES
     for i in range(len(peaks)):
         for j in range(i + 1, len(peaks)):
             mass_diff = peaks[j] - peaks[i]
@@ -209,8 +234,14 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
             for label, triple_mass in triple_dict.items():
                  if abs(mass_diff - triple_mass) <= tolerance:
                     triple_conns.append((peaks[i], peaks[j], label))
+                    
+            ## the quadra connection only exist from 0 or to entire_pepmass
+            if i == 0 or j == len(peaks) - 1:
+                for label, quodra_mass in quodra_dict.items():
+                    if abs(mass_diff - quodra_mass) <= tolerance:
+                        quodra_conns.append((peaks[i], peaks[j], label))
 
-    return single_conns, double_conns, triple_conns
+    return single_conns, double_conns, triple_conns, quodra_conns
 
 
 
@@ -383,7 +414,7 @@ def build_mass_list(
     *,
     base_dir: str = None,
     head_n: int = 50,
-    conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)')
+    conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3')
     ) -> list:
     """
     Given a dataset name like 'ME4_2+', read its annotated CSV, compute classifications,
@@ -420,6 +451,7 @@ def build_mass_list(
     # Build peptide from sequence name parsed out of the csv_name
     sequence = util.name_ouput(csv_name)  # keep your existing helper name
     pep = peptide.Pep(sequence)
+    pep_mass= pep.pep_mass
 
     # Read and pre-filter
     df = pd.read_csv(file_path)
@@ -481,7 +513,7 @@ def build_mass_list(
     print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
-    return mass_list, f'{data}: {sequence}'
+    return mass_list, f'{data}: {sequence}', pep_mass
 
 
 # --- NEW: Pathfinding Function ---
@@ -550,66 +582,24 @@ def find_all_paths(start_peak, all_connections):
     
     return found_paths
 
-# --- Example Usage ---
 
-if __name__ == "__main__":
-    # 1. Define our peaks
-    #    (100) --A(71.04)--> (171.04) --B(103.01)--> (274.05)
-    #      |                                          |
-    #      +--------A-B(174.05)----------------------+
-    #      |
-    #      +--------A-B-C(277.06)---------------------------> (377.06)
-    
-    peaks_list = [100.0, 171.04, 274.05, 377.06]
-    
-    # 2. Find all connections
-    s_conns, d_conns, t_conns = find_all_connections(peaks_list, tolerance=0.01)
-    
-    print("--- Connections Found ---")
-    print(f"Single: {s_conns}")
-    print(f"Double: {d_conns}")
-    print(f"Triple: {t_conns}")
-    print("-" * 25)
-
-    # 3. Combine the connections you want to search.
-    #    For this example, we'll search all of them.
-    all_conns = s_conns + d_conns + t_conns
-    
-    # 4. Define your starting point
-    start_from_peak = 100.0
-    
-    # 5. Find all paths
-    all_paths = find_all_paths(start_from_peak, all_conns)
-    
-    print(f"\n--- Paths found starting from {start_from_peak} ---")
-    if all_paths:
-        for i, path in enumerate(all_paths):
-            print(f"Path {i+1}: {' -> '.join(path)}")
-    else:
-        print("No paths found from this starting peak.")
-
-    # --- Example 2: Starting from a different peak ---
-    start_from_peak_2 = 171.04
-    all_paths_2 = find_all_paths(start_from_peak_2, all_conns)
-    
-    print(f"\n--- Paths found starting from {start_from_peak_2} ---")
-    if all_paths_2:
-        for i, path in enumerate(all_paths_2):
-            print(f"Path {i+1}: {' -> '.join(path)}")
-    else:
-        print("No paths found from this starting peak.")
 
 
 
 if __name__ == "__main__":
-    data = 'ME14_2+'
-    my_peaks, sequence = build_mass_list(data)
+    data = 'ME4_2+'
+    my_peaks, sequence, pep_mass = build_mass_list(data)
     
     print(my_peaks)
+    
+    my_peaks = [0] + my_peaks + [pep_mass]
     my_peaks = merge_close_values(my_peaks, threshold=0.001)
     print(my_peaks)
-    s_conns, d_conns, t_conns = find_all_connections(my_peaks, tolerance=0.0005, merge_double=True)
+    s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=0.001, merge_double=True)
+    
+    print(q_conns)
 
+    d_conns = d_conns + t_conns + q_conns
 
     # Define the sequence you want to find
     seq_to_find = ['A', '(I/L)', 'Q', '(I/L)', 'D', 'K+Ac/A+V/G+(I/L)', 'P', '(I/L)+M'] 
