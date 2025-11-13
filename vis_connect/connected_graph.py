@@ -610,11 +610,12 @@ if __name__ == "__main__":
     start_from_peak = my_peaks[0]
     all_paths = find_all_paths(start_from_peak, all_conns)
     
+    '''
     print(f"\n--- Paths found starting from {start_from_peak} ---")
     if all_paths:
         for i, path in enumerate(all_paths):
             print(f"Path {i+1}: {' -> '.join(path)}")
     else:
         print("No paths found from this starting peak.")
-
+    '''
     
