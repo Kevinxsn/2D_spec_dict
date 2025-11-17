@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple, Literal
 
 
 proton = 1.007276
+H2O = 18.015
 RepMethod = Literal["first", "last", "mean", "median"]
 
 def merge_close_values(sorted_array, threshold, method="first"):
@@ -87,8 +88,8 @@ AA_MASSES = {
     'N': 114.042927, 'D': 115.026943, 'Q': 128.058578,
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
-    'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056,
-    'E(nitro)': 129.042593 + 44.98508
+    #'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056, 'E(nitro)': 129.042593 + 44.98508
+    'R(ME2)': 156.101111 + 28.03130
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
@@ -128,6 +129,10 @@ def build_quadra_aa_masses(AA_MASSES: dict) -> dict:
     return quad
 
 QUADRA_AA_MASSES = build_quadra_aa_masses(AA_MASSES)
+#print(QUADRA_AA_MASSES)
+#for i in QUADRA_AA_MASSES:
+#    if 'R(ME2)' in i and 'G' in i and 'W' in i:
+#        print(i, QUADRA_AA_MASSES[i])
 
 
 def cluster_mass_dict(
@@ -217,7 +222,7 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
             mass_diff = peaks[j] - peaks[i]
 
             # Optimization: Stop if diff is too large for even the largest double (Trp+Trp ~ 372)
-            if mass_diff > 400:
+            if mass_diff > 500:
                 break
 
             # 1. Check for Single AA matches
@@ -231,19 +236,30 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
                  if abs(mass_diff - double_mass) <= tolerance:
                     double_conns.append((peaks[i], peaks[j], label))
             
-            for label, triple_mass in triple_dict.items():
-                 if abs(mass_diff - triple_mass) <= tolerance:
-                    triple_conns.append((peaks[i], peaks[j], label))
+            if i == 0 or j == len(peaks) - 1:
+                for label, triple_mass in triple_dict.items():
+                    if abs(mass_diff - triple_mass) <= tolerance:
+                        triple_conns.append((peaks[i], peaks[j], label))
                     
             ## the quadra connection only exist from 0 or to entire_pepmass
             if i == 0 or j == len(peaks) - 1:
                 for label, quodra_mass in quodra_dict.items():
+                    
                     if abs(mass_diff - quodra_mass) <= tolerance:
                         quodra_conns.append((peaks[i], peaks[j], label))
 
     return single_conns, double_conns, triple_conns, quodra_conns
 
 
+def two_g(the_string):
+    result = 0
+    for i in the_string:
+        if i =='G':
+            result += 1
+    if result == 2:
+        return True
+    else:
+        return False
 
 
 def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence=None, seq = '', show_graph = True, save_path = False):
@@ -506,14 +522,15 @@ def build_mass_list(
         elif row['charge2'][0] == '2':
             mass2_charge = row['correct_mass2'] * 2 - proton
 
-        return mass1_charge, mass2_charge
+        #return mass1_charge, mass2_charge
+        return mass1_charge - proton, mass2_charge - proton
         
             
     df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(mass_mul_charge, axis=1, result_type='expand')
     print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
-    return mass_list, f'{data}: {sequence}', pep_mass
+    return mass_list, f'{data}: {sequence}', pep
 
 
 # --- NEW: Pathfinding Function ---
@@ -583,32 +600,106 @@ def find_all_paths(start_peak, all_connections):
     return found_paths
 
 
+def get_path_length(path_labels):
+    return len(path_labels)
+
+
+def find_paths_above_threshold(start_peak, all_connections, 
+                               scoring_function, score_threshold):
+    """
+    Finds all paths (sequences of labels) starting from a given
+    start_peak that have a score *above* the specified threshold.
+
+    Args:
+        start_peak (float): The exact mass of the peak to start from.
+        all_connections (list): A *combined* list of all connection tuples
+                                [(start, end, label), ...]
+        scoring_function (callable): A function that takes a list of labels
+                                     (a path) and returns a numerical score.
+        score_threshold (float/int): The minimum score a path must have
+                                     (exclusive) to be included in the results.
+
+    Returns:
+        list of lists: A list where each inner list is a path (sequence of labels)
+                       that passed the score threshold.
+                       e.g., [['A', 'B'], ['A', 'C', 'D']]
+    """
+    
+    # --- Step 1: Build the adjacency list (graph_map) ---
+    # (This is identical to your original code)
+    graph_map = {}
+    for start, end, label in all_connections:
+        if start not in graph_map:
+            graph_map[start] = []
+        graph_map[start].append((end, label))
+
+    # --- Step 2: Define the recursive DFS helper function ---
+    def dfs_recursive(current_peak, current_path):
+        """
+        Recursively explores paths from the current_peak.
+        'found_paths' is populated by the outer function.
+        """
+        
+        outgoing_edges = graph_map.get(current_peak, [])
+
+        # --- Base Case ---
+        # If there are no outgoing edges, this is the end of a path.
+        if not outgoing_edges:
+            # Only score and save paths that are not empty
+            if current_path:
+                # --- MODIFIED SECTION ---
+                # 1. Score the path *at the end*
+                current_score = scoring_function(current_path)
+                
+                # 2. Only append it if it meets the threshold
+                if current_score > score_threshold:
+                    found_paths.append(list(current_path))
+                # --- END MODIFIED SECTION ---
+            return # Stop recursion for this branch
+
+        # --- Recursive Step ---
+        # (This is identical to your original code)
+        for next_peak, label in outgoing_edges:
+            current_path.append(label)
+            dfs_recursive(next_peak, current_path)
+            current_path.pop() # Backtrack
+
+    # --- Step 3: Start the search ---
+    found_paths = []
+    dfs_recursive(start_peak, [])
+    
+    return found_paths
+
 
 
 
 if __name__ == "__main__":
-    data = 'ME4_2+'
-    my_peaks, sequence, pep_mass = build_mass_list(data)
+    data = 'ME9_3+'
+    my_peaks, sequence, pep = build_mass_list(data)
+    pep_mass = pep.pep_mass
+    pep_charge = 2 if int(pep.charge[0]) == 2 else 3
     
-    print(my_peaks)
+    #print(my_peaks)
     
-    my_peaks = [0] + my_peaks + [pep_mass]
-    my_peaks = merge_close_values(my_peaks, threshold=0.001)
-    print(my_peaks)
-    s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=0.001, merge_double=True)
+    my_peaks = [0] + my_peaks +[pep_mass - proton*pep_charge - H2O]+[pep_mass - proton*pep_charge]
+    my_peaks = merge_close_values(my_peaks, threshold=0.01)
+    #print(my_peaks)
+    s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=0.008  , merge_double=True)
     
-    print(q_conns)
+    print('q_cons:', q_conns)
 
     d_conns = d_conns + t_conns + q_conns
 
     # Define the sequence you want to find
-    seq_to_find = ['A', '(I/L)', 'Q', '(I/L)', 'D', 'K+Ac/A+V/G+(I/L)', 'P', '(I/L)+M'] 
+    seq_to_find = ['E+Q+S/E+N+T/D+Q+T/(I/L)+E(nitro)+G/A+E(nitro)+V', 'Y', 'G', 'F', 'Q', 'N', 'A', '(I/L)', '(I/L)', 'V+R'] 
     # Call WITH the new argument
     plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find, seq=sequence, show_graph=False, save_path=f'vis_connect/connected_graph/{data}.png')
     
-    all_conns = s_conns + d_conns + t_conns
+    all_conns = s_conns + d_conns
     start_from_peak = my_peaks[0]
-    all_paths = find_all_paths(start_from_peak, all_conns)
+    #all_paths = find_all_paths(start_from_peak, all_conns)
+    
+    #print(q_conns)
     
     '''
     print(f"\n--- Paths found starting from {start_from_peak} ---")
@@ -618,4 +709,40 @@ if __name__ == "__main__":
     else:
         print("No paths found from this starting peak.")
     '''
+    min_length = 7
     
+    good_paths = find_paths_above_threshold(
+    start_from_peak, 
+    all_conns, 
+    get_path_length,  # The scoring function
+    min_length        # The threshold
+    )
+    
+    print(len(good_paths))
+    
+    
+    
+    print(f"\n--- Paths found starting from {start_from_peak} ---")
+    if good_paths:
+        for i, path in enumerate(good_paths):
+            print(f"Path {i+1}: {' -> '.join(path)}, the score is {len(path)}")
+    else:
+        print("No paths found from this starting peak.")
+    
+    
+    
+    '''
+    result = []
+    min_length = 0
+    for i in np.arange(0.01, 0.11, 0.01):
+        s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=i, merge_double=True)
+        all_conns = s_conns + d_conns + t_conns + q_conns
+        good_paths = find_paths_above_threshold(
+            start_from_peak, 
+            all_conns, 
+            get_path_length,  # The scoring function
+            min_length        # The threshold
+            )
+        result.append(len(good_paths))
+    print(result)
+    '''
