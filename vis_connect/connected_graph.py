@@ -128,11 +128,113 @@ def build_quadra_aa_masses(AA_MASSES: dict) -> dict:
         )
     return quad
 
+def build_penta_aa_masses(AA_MASSES: dict) -> dict:
+    """
+    Return a dict like {"A+G+S+P": mass_sum, ...}
+    for all 5-AA combinations (with replacement).
+    """
+    penta = {}
+    keys = sorted(AA_MASSES.keys())   # deterministic order
+    
+    for aa1, aa2, aa3, aa4, aa5, in combinations_with_replacement(keys, 4):
+        label = f"{aa1}+{aa2}+{aa3}+{aa4}+{aa5}"
+        penta[label] = (
+            AA_MASSES[aa1] +
+            AA_MASSES[aa2] +
+            AA_MASSES[aa3] +
+            AA_MASSES[aa4] + 
+            AA_MASSES[aa5]
+        )
+    return penta
+
+def build_six_aa_masses(AA_MASSES: dict) -> dict:
+    """
+    Return a dict like {"A+G+S+P": mass_sum, ...}
+    for all 4-AA combinations (with replacement).
+    """
+    six = {}
+    keys = sorted(AA_MASSES.keys())   # deterministic order
+    
+    for aa1, aa2, aa3, aa4, aa5,aa6 in combinations_with_replacement(keys, 4):
+        label = f"{aa1}+{aa2}+{aa3}+{aa4}+{aa5}+{aa6}"
+        six[label] = (
+            AA_MASSES[aa1] +
+            AA_MASSES[aa2] +
+            AA_MASSES[aa3] +
+            AA_MASSES[aa4] + 
+            AA_MASSES[aa5] +
+            AA_MASSES[aa6]
+        )
+    return six
+
 QUADRA_AA_MASSES = build_quadra_aa_masses(AA_MASSES)
+PENTA_AA_MASSES = build_penta_aa_masses(AA_MASSES)
 #print(QUADRA_AA_MASSES)
 #for i in QUADRA_AA_MASSES:
 #    if 'R(ME2)' in i and 'G' in i and 'W' in i:
 #        print(i, QUADRA_AA_MASSES[i])
+
+def merge_dicts_by_value_threshold(*dicts: Dict[str, float], threshold: float):
+    """
+    Merge multiple dictionaries by value similarity.
+    
+    Returns:
+    - merged_values_dict: {str(mean_value): mean_value}
+    - key_mapping_dict:   {str(mean_value): [original_keys]}
+    """
+
+    if threshold < 0:
+        raise ValueError("threshold must be non-negative")
+
+    # collect all items
+    items = []
+    for d in dicts:
+        for k, v in d.items():
+            items.append((k, float(v)))
+
+    if not items:
+        return {}, {}
+
+    # sort by value
+    items.sort(key=lambda kv: kv[1])
+
+    merged_values_dict = {}
+    key_mapping_dict = {}
+
+    group_keys: List[str] = []
+    group_vals: List[float] = []
+    group_min = None
+
+    for key, value in items:
+        if group_min is None:
+            group_min = value
+            group_keys = [key]
+            group_vals = [value]
+        else:
+            if value - group_min <= threshold:
+                group_keys.append(key)
+                group_vals.append(value)
+            else:
+                # finalize previous group
+                mean_val = sum(group_vals) / len(group_vals)
+                mean_str = f"{mean_val:.6f}"   # standard string format
+
+                merged_values_dict[mean_str] = mean_val
+                key_mapping_dict[mean_str] = group_keys.copy()
+
+                # start new group
+                group_min = value
+                group_keys = [key]
+                group_vals = [value]
+
+    # finalize last group
+    mean_val = sum(group_vals) / len(group_vals)
+    mean_str = f"{mean_val:.6f}"
+
+    merged_values_dict[mean_str] = mean_val
+    key_mapping_dict[mean_str] = group_keys.copy()
+
+    return merged_values_dict, key_mapping_dict
 
 
 def cluster_mass_dict(
@@ -199,7 +301,7 @@ def cluster_mass_dict(
     return merged_dict, inverse_map, groups
 
     
-def find_all_connections(peaks, tolerance=0.005, merge_double = False):
+def find_all_connections(peaks, tolerance=0.005, merge_double = False, terminal_tolerance = 0.005):
     """
     Identifies pairs of peaks separated by single AA mass OR double AA mass.
     Returns two separate lists of connections: (single_conns, double_conns)
@@ -211,8 +313,9 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
     quodra_conns = []
     if merge_double:
         double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
-        triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=tolerance, method="mean")
-        quodra_dict, inv_map, groups = cluster_mass_dict(QUADRA_AA_MASSES, threshold=tolerance, method="mean")
+        triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=terminal_tolerance, method="mean")
+        quodra_dict, inv_map, groups = cluster_mass_dict(QUADRA_AA_MASSES, threshold=terminal_tolerance, method="mean")
+        
     else:
         double_dict = DOUBLE_AA_MASSES
         triple_dict = TRIPLE_AA_MASSES
@@ -222,7 +325,7 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
             mass_diff = peaks[j] - peaks[i]
 
             # Optimization: Stop if diff is too large for even the largest double (Trp+Trp ~ 372)
-            if mass_diff > 500:
+            if mass_diff > 800:
                 break
 
             # 1. Check for Single AA matches
@@ -236,6 +339,8 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False):
                  if abs(mass_diff - double_mass) <= tolerance:
                     double_conns.append((peaks[i], peaks[j], label))
             
+            
+            ## the triple connection only exist from 0 or to entire_pepmass
             if i == 0 or j == len(peaks) - 1:
                 for label, triple_mass in triple_dict.items():
                     if abs(mass_diff - triple_mass) <= tolerance:
