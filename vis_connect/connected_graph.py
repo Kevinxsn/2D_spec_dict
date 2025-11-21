@@ -136,7 +136,7 @@ def build_penta_aa_masses(AA_MASSES: dict) -> dict:
     penta = {}
     keys = sorted(AA_MASSES.keys())   # deterministic order
     
-    for aa1, aa2, aa3, aa4, aa5, in combinations_with_replacement(keys, 4):
+    for aa1, aa2, aa3, aa4, aa5, in combinations_with_replacement(keys, 5):
         label = f"{aa1}+{aa2}+{aa3}+{aa4}+{aa5}"
         penta[label] = (
             AA_MASSES[aa1] +
@@ -155,7 +155,7 @@ def build_six_aa_masses(AA_MASSES: dict) -> dict:
     six = {}
     keys = sorted(AA_MASSES.keys())   # deterministic order
     
-    for aa1, aa2, aa3, aa4, aa5,aa6 in combinations_with_replacement(keys, 4):
+    for aa1, aa2, aa3, aa4, aa5,aa6 in combinations_with_replacement(keys, 6):
         label = f"{aa1}+{aa2}+{aa3}+{aa4}+{aa5}+{aa6}"
         six[label] = (
             AA_MASSES[aa1] +
@@ -177,10 +177,10 @@ PENTA_AA_MASSES = build_penta_aa_masses(AA_MASSES)
 def merge_dicts_by_value_threshold(*dicts: Dict[str, float], threshold: float):
     """
     Merge multiple dictionaries by value similarity.
-    
-    Returns:
-    - merged_values_dict: {str(mean_value): mean_value}
-    - key_mapping_dict:   {str(mean_value): [original_keys]}
+
+    Returns two dicts:
+      - merged_values_dict: {str(mean_value_rounded_3_decimals): mean_value_full_precision}
+      - key_mapping_dict:   {str(mean_value_rounded_3_decimals): [original_keys]}
     """
 
     if threshold < 0:
@@ -217,7 +217,7 @@ def merge_dicts_by_value_threshold(*dicts: Dict[str, float], threshold: float):
             else:
                 # finalize previous group
                 mean_val = sum(group_vals) / len(group_vals)
-                mean_str = f"{mean_val:.6f}"   # standard string format
+                mean_str = f"{mean_val:.3f}"  # rounded to 3 decimals
 
                 merged_values_dict[mean_str] = mean_val
                 key_mapping_dict[mean_str] = group_keys.copy()
@@ -229,12 +229,14 @@ def merge_dicts_by_value_threshold(*dicts: Dict[str, float], threshold: float):
 
     # finalize last group
     mean_val = sum(group_vals) / len(group_vals)
-    mean_str = f"{mean_val:.6f}"
+    mean_str = f"{mean_val:.3f}"
 
     merged_values_dict[mean_str] = mean_val
     key_mapping_dict[mean_str] = group_keys.copy()
 
     return merged_values_dict, key_mapping_dict
+
+
 
 
 def cluster_mass_dict(
@@ -300,26 +302,32 @@ def cluster_mass_dict(
 
     return merged_dict, inverse_map, groups
 
+
+terminal_dict, terminal_map_dict = merge_dicts_by_value_threshold(TRIPLE_AA_MASSES, QUADRA_AA_MASSES, PENTA_AA_MASSES, threshold=0.05)
+double_edge_dict, double_edge_map_dict = merge_dicts_by_value_threshold(DOUBLE_AA_MASSES, threshold=0.05)
     
 def find_all_connections(peaks, tolerance=0.005, merge_double = False, terminal_tolerance = 0.005):
     """
     Identifies pairs of peaks separated by single AA mass OR double AA mass.
     Returns two separate lists of connections: (single_conns, double_conns)
     """
+    mass_aa_map = {}
     peaks = sorted(peaks)
     single_conns = []
     double_conns = []
-    triple_conns = []
-    quodra_conns = []
+    terminal_conns = []
+    #triple_conns = []
+    #quodra_conns = []
     if merge_double:
-        double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
-        triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=terminal_tolerance, method="mean")
-        quodra_dict, inv_map, groups = cluster_mass_dict(QUADRA_AA_MASSES, threshold=terminal_tolerance, method="mean")
+        double_dict = double_edge_dict
+        #double_dict, inv_map, groups = cluster_mass_dict(DOUBLE_AA_MASSES, threshold=tolerance, method="mean")
+        #triple_dict, inv_map, groups = cluster_mass_dict(TRIPLE_AA_MASSES, threshold=terminal_tolerance, method="mean")
+        #quodra_dict, inv_map, groups = cluster_mass_dict(QUADRA_AA_MASSES, threshold=terminal_tolerance, method="mean")
         
     else:
         double_dict = DOUBLE_AA_MASSES
-        triple_dict = TRIPLE_AA_MASSES
-        quodra_dict = QUADRA_AA_MASSES
+        #triple_dict = TRIPLE_AA_MASSES
+        #quodra_dict = QUADRA_AA_MASSES
     for i in range(len(peaks)):
         for j in range(i + 1, len(peaks)):
             mass_diff = peaks[j] - peaks[i]
@@ -337,23 +345,39 @@ def find_all_connections(peaks, tolerance=0.005, merge_double = False, terminal_
             # 2. Check for Double AA matches
             for label, double_mass in double_dict.items():
                  if abs(mass_diff - double_mass) <= tolerance:
+                    
+                    if merge_double:
+                        if label in mass_aa_map:
+                            mass_aa_map[label] += double_edge_map_dict[label] 
+                        else:
+                            mass_aa_map[label] = double_edge_map_dict[label] 
+                    
+                    else: 
+                        label
+                    
                     double_conns.append((peaks[i], peaks[j], label))
             
             
             ## the triple connection only exist from 0 or to entire_pepmass
-            if i == 0 or j == len(peaks) - 1:
-                for label, triple_mass in triple_dict.items():
+            if i == 0 or j == len(peaks) - 1 or j==len(peaks)-2:
+                for label, triple_mass in terminal_dict.items():
                     if abs(mass_diff - triple_mass) <= tolerance:
-                        triple_conns.append((peaks[i], peaks[j], label))
+                        
+                        if label in mass_aa_map:
+                            mass_aa_map[label] += terminal_map_dict[label]
+                        else:
+                            mass_aa_map[label] = terminal_map_dict[label]
+                        
+                        terminal_conns.append((peaks[i], peaks[j], label))
                     
             ## the quadra connection only exist from 0 or to entire_pepmass
-            if i == 0 or j == len(peaks) - 1:
-                for label, quodra_mass in quodra_dict.items():
-                    
-                    if abs(mass_diff - quodra_mass) <= tolerance:
-                        quodra_conns.append((peaks[i], peaks[j], label))
+            #if i == 0 or j == len(peaks) - 1:
+            #    for label, quodra_mass in quodra_dict.items():
+            #        
+            #        if abs(mass_diff - quodra_mass) <= tolerance:
+            #            quodra_conns.append((peaks[i], peaks[j], label))
 
-    return single_conns, double_conns, triple_conns, quodra_conns
+    return single_conns, double_conns, terminal_conns, mass_aa_map#triple_conns, quodra_conns
 
 
 def two_g(the_string):
@@ -474,7 +498,7 @@ def plot_complex_arc_graph(peaks, single_conns, double_conns, highlight_sequence
         ax.add_patch(arc)
 
         ax.text(midpoint, (height / 2) + (width * 0.02), label,
-                ha='center', va='bottom', fontsize=9, color=text_color, weight=text_weight,
+                ha='center', va='bottom', fontsize=7, color=text_color, weight=text_weight,
                 bbox=dict(facecolor='white', edgecolor='none', alpha=0.6, pad=0.5))
 
     # --- Plot DOUBLE connections (MODIFIED to use highlight_arc_set) ---
@@ -779,7 +803,7 @@ def find_paths_above_threshold(start_peak, all_connections,
 
 
 if __name__ == "__main__":
-    data = 'ME9_3+'
+    data = 'ME9_2+'
     my_peaks, sequence, pep = build_mass_list(data)
     pep_mass = pep.pep_mass
     pep_charge = 2 if int(pep.charge[0]) == 2 else 3
@@ -789,14 +813,14 @@ if __name__ == "__main__":
     my_peaks = [0] + my_peaks +[pep_mass - proton*pep_charge - H2O]+[pep_mass - proton*pep_charge]
     my_peaks = merge_close_values(my_peaks, threshold=0.01)
     #print(my_peaks)
-    s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=0.008  , merge_double=True)
+    s_conns, d_conns, t_conns, mass_aa_map= find_all_connections(my_peaks, tolerance=0.02  , merge_double=True)
     
-    print('q_cons:', q_conns)
 
-    d_conns = d_conns + t_conns + q_conns
+
+    d_conns = d_conns + t_conns
 
     # Define the sequence you want to find
-    seq_to_find = ['E+Q+S/E+N+T/D+Q+T/(I/L)+E(nitro)+G/A+E(nitro)+V', 'Y', 'G', 'F', 'Q', 'N', 'A', '(I/L)', '(I/L)', 'V+R'] 
+    seq_to_find = ['484.252', 'E', 'E', 'N', '(I/L)', 'F', 'S', '314.164'] 
     # Call WITH the new argument
     plot_complex_arc_graph(my_peaks, s_conns, d_conns, highlight_sequence=seq_to_find, seq=sequence, show_graph=False, save_path=f'vis_connect/connected_graph/{data}.png')
     
@@ -815,6 +839,7 @@ if __name__ == "__main__":
         print("No paths found from this starting peak.")
     '''
     min_length = 7
+    over_length = 8
     
     good_paths = find_paths_above_threshold(
     start_from_peak, 
@@ -834,20 +859,44 @@ if __name__ == "__main__":
     else:
         print("No paths found from this starting peak.")
     
-    
+    mass_aa_map = pd.Series(mass_aa_map).sort_index()
+    print(mass_aa_map)
+    mass_aa_map.to_csv(f"vis_connect/connected_graph_map/{data}_map.txt", index=True, header=False)
+
     
     '''
     result = []
+    good_result = []
+    over_rated_result = []
     min_length = 0
-    for i in np.arange(0.01, 0.11, 0.01):
-        s_conns, d_conns, t_conns, q_conns = find_all_connections(my_peaks, tolerance=i, merge_double=True)
-        all_conns = s_conns + d_conns + t_conns + q_conns
-        good_paths = find_paths_above_threshold(
+    good_length = 7
+    over_length = 8
+    for i in np.arange(0.01, 0.09, 0.01):
+        s_conns, d_conns, t_conns, mass_aa_map = find_all_connections(my_peaks, tolerance=i, merge_double=True)
+        all_conns = s_conns + d_conns + t_conns
+        
+        all_paths = find_paths_above_threshold(
             start_from_peak, 
             all_conns, 
             get_path_length,  # The scoring function
             min_length        # The threshold
             )
-        result.append(len(good_paths))
+        good_paths = find_paths_above_threshold(
+            start_from_peak, 
+            all_conns, 
+            get_path_length,  # The scoring function
+            good_length        # The threshold
+            )
+        over_paths = find_paths_above_threshold(
+            start_from_peak, 
+            all_conns, 
+            get_path_length,  # The scoring function
+            over_length        # The threshold
+            )
+        result.append(len(all_paths))
+        good_result.append(len(good_paths))
+        over_rated_result.append(len(over_paths))
     print(result)
+    print(good_result)
+    print(over_rated_result)
     '''
