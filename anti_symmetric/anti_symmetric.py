@@ -1,14 +1,18 @@
 import sys
 import os
-
-# Get current notebook directory
-current_dir = os.getcwd()
-
-# Add parent directory
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-import peptide
 import math
+
+# Directory of this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Parent directory of this script
+parent_dir = os.path.dirname(current_dir)
+
+# Add parent directory to sys.path
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+
+import peptide
 
 
 amino_acid_masses = {
@@ -23,6 +27,30 @@ amino_acid_masses = {
         "H": 137.05891,  # Histidine
         "I": 113.08406,  # Isoleucine
         "L": 113.08406,  # Leucine
+        "K": 128.09496,  # Lysine
+        "M": 131.04049,  # Methionine
+        "F": 147.06841,  # Phenylalanine
+        "P": 97.05276,   # Proline
+        "S": 87.03203,   # Serine
+        "T": 101.04768,  # Threonine
+        "W": 186.07931,  # Tryptophan
+        "Y": 163.06333,  # Tyrosine
+        "V": 99.06841    # Valine
+    }
+
+
+amino_acid_masses_merge = {
+        "A": 71.03711,   # Alanine
+        "R": 156.10111,  # Arginine
+        "N": 114.04293,  # Asparagine
+        "D": 115.02694,  # Aspartic acid
+        "C": 103.00919,  # Cysteine
+        "E": 129.04259,  # Glutamic acid
+        "Q": 128.05858,  # Glutamine
+        "G": 57.02146,   # Glycine
+        "H": 137.05891,  # Histidine
+        "113(I/L)": 113.08406,  # Isoleucine
+        #"L": 113.08406,  # Leucine
         "K": 128.09496,  # Lysine
         "M": 131.04049,  # Methionine
         "F": 147.06841,  # Phenylalanine
@@ -179,7 +207,7 @@ def format_path_string(path, with_aa= False):
                 mass = round(next_n[1] - curr[1], 3)
             aa = None
             for key, value in amino_acid_masses.items():
-                if abs(value - mass) <= 0.05:  # Allow small tolerance for matching
+                if abs(value - mass) <= 0.001:  # Allow small tolerance for matching
                     aa = key
                     break
             output += f" {direction}({aa}) {fmt_node(next_n)}"
@@ -223,7 +251,7 @@ def path_to_seq(path, seq_mass):
             mass = round(next_n[1] - curr[1], 3)
         aa = None
         for key, value in amino_acid_masses.items():
-            if abs(value - mass) <= 0.05:  # Allow small tolerance for matching
+            if abs(value - mass) <= 0.001:  # Allow small tolerance for matching
                 aa = key
                 break
         output += f" {direction}({aa}) {fmt_node(next_n)}"
@@ -234,6 +262,7 @@ def path_to_seq(path, seq_mass):
     backward.reverse()
     
     the_middle_diff = seq_mass - (path[-1][0] + path[-1][1])
+    
     for key, value in amino_acid_masses.items():
         if abs(value - the_middle_diff) <= 0.05:
             middle = key
@@ -246,3 +275,48 @@ def path_to_seq(path, seq_mass):
         full_seq += "?"
     full_seq += "".join(backward)
     return full_seq
+
+
+if __name__ == "__main__":
+    # Example usage
+    the_seq = "TWTLCGTVEY"
+    the_peptide = f"[{the_seq}+2H]2+"
+    spectrum, pairs = create_fake_pairs(the_peptide)
+    total_mass = get_pep_mass(the_seq)
+
+    sorted_array = [0.0] + spectrum + [sum(pairs[0])]
+    mid_point = len(sorted_array) // 2
+    lower_half = sorted_array[:mid_point]
+    upper_half = sorted_array[mid_point:]
+    lower_half_modified = lower_half + [18.01056]
+    lower_half_modified.sort()
+    
+    paths = find_peptide_paths(
+        lower_half_modified, 
+        allowed_masses=amino_acid_masses_merge.values(), 
+        tolerance=0.01,
+        start_point=(0.0, 18.01056)
+    )
+    
+    for p in paths:
+        print(format_path_string(p, with_aa=True))
+    
+    for p in paths:
+        print(path_to_seq(p, total_mass))
+        
+    the_max = max([len(p) for p in paths])
+    the_max_length_num = sum([1 for p in paths if len(p) == the_max])
+    the_max_length_paths = [p for p in paths if len(p) == the_max]
+    
+    the_max_length_pep = set([path_to_seq(p, total_mass) for p in paths if len(p) == the_max])
+    
+    print('the original peptide:', the_peptide)
+    print(len(paths), "paths found.", "Max length:", the_max, 'There are', len(the_max_length_pep), "paths of max length.")
+    print("Max length paths:")
+    
+    for p in the_max_length_pep:
+        print(p)
+
+    #for p in the_max_length_paths:
+    #    print(format_path_string(p, with_aa=True))
+    #    print(path_to_seq(p, total_mass))
