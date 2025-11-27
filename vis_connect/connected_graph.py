@@ -636,7 +636,7 @@ def build_mass_list(
     # Suppose your DataFrame is named df
     df_parent = df_parent.dropna(subset=['charge1'])
     df_parent = df_parent.dropna(subset=['charge2'])
-    print(df_parent)
+    #print(df_parent)
     
     def mass_mul_charge(row):
         mass1_charge = None
@@ -656,7 +656,7 @@ def build_mass_list(
         
             
     df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(mass_mul_charge, axis=1, result_type='expand')
-    print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
+    #print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
     return mass_list, f'{data}: {sequence}', pep

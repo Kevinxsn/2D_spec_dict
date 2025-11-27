@@ -109,6 +109,7 @@ class Pep:
         h_num = int(self.charge.replace('+','').replace('H',''))
         self.pep_mass += h_num * AA.element_masses['proton']
         
+        self.seq_mass = self.pep_mass - h_num * AA.element_masses['proton'] - AA.element_masses['H2O']
         
     def extract_sequence(peptide: str) -> str:
         """
