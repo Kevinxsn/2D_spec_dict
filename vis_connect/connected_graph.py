@@ -89,8 +89,8 @@ AA_MASSES = {
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
     #'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056, 'E(nitro)': 129.042593 + 44.98508
-    #'R(ME2)': 156.101111 + 28.03130
-    'E(nitro)': 129.042593 + 44.98508
+    'R(ME2)': 156.101111 + 28.03130
+    #'E(nitro)': 129.042593 + 44.98508
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
@@ -660,6 +660,7 @@ def build_mass_list(
     #print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
+    #print(df_parent[['mass1_charge', 'mass2_charge']])
     return mass_list, f'{data}: {sequence}', pep
 
 
