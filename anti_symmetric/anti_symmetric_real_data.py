@@ -76,6 +76,8 @@ amino_acid_masses_merge = {
         "V": 99.06841    # Valine
     }
 
+
+
 def create_fake_pairs(the_peptide):
     the_pep = peptide.Pep(the_peptide)
     pair_result = []
@@ -374,20 +376,26 @@ def format_path_to_seq(the_set):
 
 ## visulization 
 
-def visualize_complete_graph(spectrum, spurious_masses=None, 
-                             candidate_paths=None, correct_path=None, 
-                             tolerance=0.02, aa_map=None):
+def visualize_all_paths_annotated(spectrum, spurious_masses=None, 
+                                  candidate_paths=None, correct_path=None, 
+                                  tolerance=0.02, aa_map=None,
+                                  title="Peptide Spectrum Graph",
+                                  save_path=None):
+    """
+    Visualizes the graph where BOTH candidate and correct paths are fully annotated.
+    """
     
-    # 1. Setup & Classification
+    # --- 1. Setup & Classification ---
     S = sorted(list(set(spectrum)))
     S_arr = np.array(S)
     
     spurious_set = set(spurious_masses) if spurious_masses else set()
     def is_spurious(val): return val in spurious_set
 
-    fig, ax = plt.subplots(figsize=(16, 16))
+    # Create Figure
+    fig, ax = plt.subplots(figsize=(18, 18)) # Increased size for readability
 
-    # 2. Draw Grid Lines
+    # --- 2. Draw Grid Lines ---
     for mass in S:
         if is_spurious(mass):
             c, a, ls = 'salmon', 0.25, '--'
@@ -396,7 +404,7 @@ def visualize_complete_graph(spectrum, spurious_masses=None,
         ax.axvline(x=mass, color=c, linestyle=ls, linewidth=0.5, alpha=a)
         ax.axhline(y=mass, color=c, linestyle=ls, linewidth=0.5, alpha=a)
 
-    # 3. Draw Nodes
+    # --- 3. Draw Nodes ---
     X, Y = np.meshgrid(S, S)
     is_noise_mask = np.array([is_spurious(m) for m in S])
     X_noise, Y_noise = np.meshgrid(is_noise_mask, is_noise_mask)
@@ -405,11 +413,12 @@ def visualize_complete_graph(spectrum, spurious_masses=None,
     ax.scatter(X[node_is_noise], Y[node_is_noise], s=15, c='pink', alpha=0.4, zorder=1)
     ax.scatter(X[~node_is_noise], Y[~node_is_noise], s=25, c='lightblue', alpha=0.5, zorder=2)
 
-    # 4. Helpers (Snapping & Annotation)
+    # --- 4. Helpers ---
     def get_closest_in_spectrum(val):
         idx = (np.abs(S_arr - val)).argmin()
         closest = S_arr[idx]
         return closest if abs(closest - val) <= tolerance else val
+        #return f'{closest}({abs(closest -val)})' if abs(closest - val) <= tolerance else val
 
     def get_snapped_path(raw_path):
         return [(get_closest_in_spectrum(px), get_closest_in_spectrum(py)) for px, py in raw_path]
@@ -419,90 +428,117 @@ def visualize_complete_graph(spectrum, spurious_masses=None,
         if aa_map:
             min_diff = tolerance + 1e-9
             best_name = None
+            the_diff = None
             for aa_mass, name in aa_map.items():
                 diff = abs(mass_diff - aa_mass)
                 if diff <= tolerance and diff < min_diff:
                     min_diff = diff
                     best_name = name
+                    the_diff = diff
             if best_name: txt = f"{best_name}\n({mass_diff:.2f})"
         return txt
 
-    # 5. Draw Candidate Paths
-    if candidate_paths:
-        for path in candidate_paths:
-            if not path or len(path) < 2: continue
-            snapped_path = get_snapped_path(path)
-            p_xs, p_ys = zip(*snapped_path)
-            ax.plot(p_xs, p_ys, color='purple', linewidth=1.5, alpha=0.3, linestyle='--', zorder=10)
-            ax.scatter(p_xs, p_ys, s=20, color='purple', alpha=0.3, zorder=10)
+    # --- 5. Unified Drawing Function ---
+    def draw_path_logic(path_data, line_color, box_color, text_color, z_order, is_hero=False):
+        """
+        Draws a path with full annotations.
+        """
+        if not path_data or len(path_data) < 2: return
 
-    # 6. Draw Correct Path
-    if correct_path and len(correct_path) > 1:
-        snapped_correct = get_snapped_path(correct_path)
-        start = snapped_correct[0]
-        ax.scatter([start[0]], [start[1]], color='red', s=300, edgecolors='black', zorder=50)
+        snapped = get_snapped_path(path_data)
+        
+        # Style settings based on whether it's the "Hero" (Correct) path or a Candidate
+        lw = 3.5 if is_hero else 1.5
+        ls = '-' if is_hero else '--'
+        alpha = 0.9 if is_hero else 0.6
+        marker_size = 9 if is_hero else 6
+        font_size = 9 if is_hero else 7 # Candidates get smaller text
+        
+        # Draw Start Node
+        start = snapped[0]
+        s_size = 300 if is_hero else 100
+        ax.scatter([start[0]], [start[1]], color='red', s=s_size, edgecolors='black', zorder=z_order+5)
 
-        for i in range(len(snapped_correct) - 1):
-            p_start = snapped_correct[i]
-            p_end = snapped_correct[i+1]
+        # Iterate Segments
+        for i in range(len(snapped) - 1):
+            p_start = snapped[i]
+            p_end = snapped[i+1]
             
+            # Draw Line Segment
             ax.plot([p_start[0], p_end[0]], [p_start[1], p_end[1]], 
-                    color='lime', linewidth=3.5, alpha=0.9, linestyle='-', 
-                    marker='o', markersize=9, markerfacecolor='white', markeredgecolor='green', markeredgewidth=2,
-                    zorder=30)
+                    color=line_color, linewidth=lw, alpha=alpha, linestyle=ls, 
+                    marker='o', markersize=marker_size, markerfacecolor='white', 
+                    markeredgecolor=line_color, markeredgewidth=1.5,
+                    zorder=z_order)
 
+            # Draw Annotation
             dx, dy = p_end[0] - p_start[0], p_end[1] - p_start[1]
             mass_jump = max(abs(dx), abs(dy))
+            
+            # Text Position (Midpoint)
             mid_x, mid_y = (p_start[0] + p_end[0]) / 2, (p_start[1] + p_end[1]) / 2
             
             ax.text(mid_x, mid_y, get_anno_text(mass_jump), 
-                    ha='center', va='center', fontsize=9, color='darkgreen', fontweight='bold',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='green', alpha=0.9, lw=1),
-                    zorder=40)
-        
-        end = snapped_correct[-1]
-        ax.scatter([end[0]], [end[1]], color='gold', marker='*', s=400, edgecolors='black', linewidth=2, zorder=55)
+                    ha='center', va='center', fontsize=font_size, 
+                    color=text_color, fontweight='bold',
+                    # Box style
+                    bbox=dict(boxstyle='round,pad=0.2', fc=box_color, ec=line_color, alpha=0.85, lw=1),
+                    zorder=z_order+10) # Text sits on top of line
 
-    # --- 7. AXIS FORMATTING & COLORING FIX ---
+        # Draw End Node
+        end = snapped[-1]
+        e_size = 400 if is_hero else 150
+        ax.scatter([end[0]], [end[1]], color='gold', marker='*', s=e_size, edgecolors='black', linewidth=1.5, zorder=z_order+15)
+
+    # --- 6. Draw Paths ---
     
-    # Set tick locations explicitly
+    # A. Draw Candidates (Purple, Lower Z-Order)
+    if candidate_paths:
+        for path in candidate_paths:
+            draw_path_logic(path, 
+                            line_color='purple', 
+                            box_color='lavender', # Light purple background for text
+                            text_color='indigo',
+                            z_order=20, 
+                            is_hero=False)
+
+    # B. Draw Correct Path (Green, Higher Z-Order)
+    if correct_path:
+        draw_path_logic(correct_path, 
+                        line_color='lime', 
+                        box_color='white', 
+                        text_color='darkgreen',
+                        z_order=50, 
+                        is_hero=True)
+
+    # --- 7. Axis Formatting & Colors ---
     ax.set_xticks(S)
     ax.set_yticks(S)
     
-    # Set text labels
-    x_labels_text = [f"{val:.2f}" for val in S]
-    y_labels_text = [f"{val:.2f}" for val in S]
-    ax.set_xticklabels(x_labels_text, rotation=90, fontsize=9)
-    ax.set_yticklabels(y_labels_text, fontsize=9)
+    ax.set_xticklabels([f"{val:.2f}" for val in S], rotation=90, fontsize=9)
+    ax.set_yticklabels([f"{val:.2f}" for val in S], fontsize=9)
     
-    # Move X Axis to top
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top')
 
-    # --- THE FIX IS HERE ---
-    # We iterate over the 'major ticks' directly to access label2 (top label)
-    
-    # X-Axis Coloring
+    # Color X Axis (Top)
     x_ticks = ax.xaxis.get_major_ticks()
     for tick, val in zip(x_ticks, S):
         if is_spurious(val):
-            # Because tick_top() is on, the visible label is 'label2'
             tick.label2.set_color('salmon')
             tick.label2.set_fontweight('bold')
         else:
             tick.label2.set_color('black')
 
-    # Y-Axis Coloring
+    # Color Y Axis (Left)
     y_ticks = ax.yaxis.get_major_ticks()
     for tick, val in zip(y_ticks, S):
         if is_spurious(val):
-            # Y-axis is standard (left), so visible label is 'label1'
             tick.label1.set_color('salmon')
             tick.label1.set_fontweight('bold')
         else:
             tick.label1.set_color('black')
 
-    # Standard Axis Config
     pad = 5
     ax.set_xlim(min(S) - pad, max(S) + pad)
     ax.set_ylim(min(S) - pad, max(S) + pad)
@@ -512,17 +548,31 @@ def visualize_complete_graph(spectrum, spurious_masses=None,
 
     # Legend
     custom_lines = [
-        Line2D([0], [0], color='lime', lw=3.5, label='Correct Path'),
-        Line2D([0], [0], color='purple', lw=1.5, linestyle='--', alpha=0.5, label='Candidate Paths'),
+        Line2D([0], [0], color='lime', lw=3.5, label='Correct Path (Annotated)'),
+        Line2D([0], [0], color='purple', lw=1.5, linestyle='--', label='Candidate Path (Annotated)'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='lightblue', label='Real Signal Node'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='pink', label='Spurious Noise Node'),
         Line2D([0], [0], color='salmon', lw=2, label='Spurious Axis Label')
     ]
     ax.legend(handles=custom_lines, loc='upper right', bbox_to_anchor=(1.15, 1))
     
-    plt.title("Mass Spectrometry Graph Search\n(Color Coded Axes & Nodes)", pad=40, fontsize=16)
-    plt.tight_layout()
-    plt.show()
+    ax.set_title(title, pad=40, fontsize=16)
+    
+    # 8. Save vs Show
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
+
+
+
 
 
 
@@ -582,7 +632,7 @@ if __name__ == "__main__":
     paths = find_peptide_paths(
         lower_half_modified, 
         allowed_masses=allowed_mass_list, 
-        tolerance=0.02,
+        tolerance=0.01,
         start_point=(0.0, 18.01056)
     )
     
@@ -607,3 +657,18 @@ if __name__ == "__main__":
     
     real_spectrum = lower_half_modified
     noise = []
+    full_spec = sorted(real_spectrum + noise)
+    
+    amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
+    
+    correct = [(0.0, 18.01056), (332.184804, 18.01056), (419.216834, 18.01056), (419.216834, 484.254614), (566.285244, 484.254614), (566.285244, 613.297204), (679.369304, 613.297204), (679.369304, 742.339794)]
+    candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
+    
+    
+    visualize_all_paths_annotated(full_spec, spurious_masses=noise, 
+                         candidate_paths=candidates, 
+                         correct_path=correct, 
+                         aa_map=amino_acid_masses_switch,
+                         title = sequence,
+                         save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.png'
+                         )
