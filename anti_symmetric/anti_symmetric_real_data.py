@@ -3,6 +3,7 @@ import sys
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from pathlib import Path
+import matplotlib.patches as patches
 
 
 # Directory where *this script* is located
@@ -376,13 +377,17 @@ def format_path_to_seq(the_set):
 
 ## visulization 
 
-def visualize_all_paths_annotated(spectrum, spurious_masses=None, 
-                                  candidate_paths=None, correct_path=None, 
-                                  tolerance=0.02, aa_map=None,
-                                  title="Peptide Spectrum Graph",
-                                  save_path=None):
+def visualize_all_paths(spectrum, spurious_masses=None, 
+                              candidate_paths=None, correct_path=None, 
+                              tolerance=0.02, aa_map=None, pep_mass=None,
+                              title="Peptide Spectrum Graph",
+                              save_path=None):
     """
-    Visualizes the graph where BOTH candidate and correct paths are fully annotated.
+    Visualizes paths with Edge Annotations AND End-Point Residual Annotations.
+    
+    Args:
+        pep_mass (float): The total mass of the peptide. Used to calculate 
+                          the residual at the end point (PepMass - x1 - x2).
     """
     
     # --- 1. Setup & Classification ---
@@ -393,7 +398,7 @@ def visualize_all_paths_annotated(spectrum, spurious_masses=None,
     def is_spurious(val): return val in spurious_set
 
     # Create Figure
-    fig, ax = plt.subplots(figsize=(18, 18)) # Increased size for readability
+    fig, ax = plt.subplots(figsize=(18, 18))
 
     # --- 2. Draw Grid Lines ---
     for mass in S:
@@ -418,110 +423,108 @@ def visualize_all_paths_annotated(spectrum, spurious_masses=None,
         idx = (np.abs(S_arr - val)).argmin()
         closest = S_arr[idx]
         return closest if abs(closest - val) <= tolerance else val
-        #return f'{closest}({abs(closest -val)})' if abs(closest - val) <= tolerance else val
 
     def get_snapped_path(raw_path):
         return [(get_closest_in_spectrum(px), get_closest_in_spectrum(py)) for px, py in raw_path]
 
     def get_anno_text(mass_diff):
+        # Allow negative residuals for the end point check
+        abs_diff = abs(mass_diff)
         txt = f"{mass_diff:.2f}"
+        
         if aa_map:
             min_diff = tolerance + 1e-9
             best_name = None
-            the_diff = None
             for aa_mass, name in aa_map.items():
-                diff = abs(mass_diff - aa_mass)
+                diff = abs(abs_diff - aa_mass)
                 if diff <= tolerance and diff < min_diff:
                     min_diff = diff
                     best_name = name
-                    the_diff = diff
-            if best_name: txt = f"{best_name}\n({mass_diff:.2f})"
+            if best_name: 
+                txt = f"{best_name}\n({mass_diff:.2f})"
         return txt
 
     # --- 5. Unified Drawing Function ---
     def draw_path_logic(path_data, line_color, box_color, text_color, z_order, is_hero=False):
-        """
-        Draws a path with full annotations.
-        """
         if not path_data or len(path_data) < 2: return
 
         snapped = get_snapped_path(path_data)
         
-        # Style settings based on whether it's the "Hero" (Correct) path or a Candidate
+        # Style settings
         lw = 3.5 if is_hero else 1.5
         ls = '-' if is_hero else '--'
         alpha = 0.9 if is_hero else 0.6
         marker_size = 9 if is_hero else 6
-        font_size = 9 if is_hero else 7 # Candidates get smaller text
+        font_size = 9 if is_hero else 7
         
-        # Draw Start Node
+        # Draw Start
         start = snapped[0]
         s_size = 300 if is_hero else 100
         ax.scatter([start[0]], [start[1]], color='red', s=s_size, edgecolors='black', zorder=z_order+5)
 
-        # Iterate Segments
+        # Draw Edges
         for i in range(len(snapped) - 1):
             p_start = snapped[i]
             p_end = snapped[i+1]
             
-            # Draw Line Segment
             ax.plot([p_start[0], p_end[0]], [p_start[1], p_end[1]], 
                     color=line_color, linewidth=lw, alpha=alpha, linestyle=ls, 
                     marker='o', markersize=marker_size, markerfacecolor='white', 
                     markeredgecolor=line_color, markeredgewidth=1.5,
                     zorder=z_order)
 
-            # Draw Annotation
             dx, dy = p_end[0] - p_start[0], p_end[1] - p_start[1]
             mass_jump = max(abs(dx), abs(dy))
-            
-            # Text Position (Midpoint)
             mid_x, mid_y = (p_start[0] + p_end[0]) / 2, (p_start[1] + p_end[1]) / 2
             
             ax.text(mid_x, mid_y, get_anno_text(mass_jump), 
                     ha='center', va='center', fontsize=font_size, 
                     color=text_color, fontweight='bold',
-                    # Box style
                     bbox=dict(boxstyle='round,pad=0.2', fc=box_color, ec=line_color, alpha=0.85, lw=1),
-                    zorder=z_order+10) # Text sits on top of line
+                    zorder=z_order+10)
 
         # Draw End Node
         end = snapped[-1]
         e_size = 400 if is_hero else 150
         ax.scatter([end[0]], [end[1]], color='gold', marker='*', s=e_size, edgecolors='black', linewidth=1.5, zorder=z_order+15)
+        
+        # --- NEW: End Point Annotation (Residual) ---
+        if pep_mass is not None:
+            # Calculate what is missing: PepMass - (x1 + x2)
+            residual = pep_mass - (end[0] + end[1])
+            
+            # Format the text (check if the missing part looks like an AA)
+            res_text = get_anno_text(residual)
+            label = f"Rem:\n{res_text}"
+            
+            # Position: Shift visually UP (va='bottom') so it sits on top of the star
+            # We use a Gold/Orange box to distinguish it from edge annotations
+            ax.text(end[0], end[1], label, 
+                    ha='center', va='bottom', fontsize=font_size, 
+                    color='darkgoldenrod', fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.3', fc='lightyellow', ec='gold', alpha=0.9, lw=2),
+                    zorder=z_order+20)
 
     # --- 6. Draw Paths ---
-    
-    # A. Draw Candidates (Purple, Lower Z-Order)
     if candidate_paths:
         for path in candidate_paths:
             draw_path_logic(path, 
-                            line_color='purple', 
-                            box_color='lavender', # Light purple background for text
-                            text_color='indigo',
-                            z_order=20, 
-                            is_hero=False)
+                            line_color='purple', box_color='lavender', text_color='indigo',
+                            z_order=20, is_hero=False)
 
-    # B. Draw Correct Path (Green, Higher Z-Order)
     if correct_path:
         draw_path_logic(correct_path, 
-                        line_color='lime', 
-                        box_color='white', 
-                        text_color='darkgreen',
-                        z_order=50, 
-                        is_hero=True)
+                        line_color='lime', box_color='white', text_color='darkgreen',
+                        z_order=50, is_hero=True)
 
     # --- 7. Axis Formatting & Colors ---
     ax.set_xticks(S)
     ax.set_yticks(S)
-    
     ax.set_xticklabels([f"{val:.2f}" for val in S], rotation=90, fontsize=9)
     ax.set_yticklabels([f"{val:.2f}" for val in S], fontsize=9)
-    
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top')
 
-    # Color X Axis (Top)
     x_ticks = ax.xaxis.get_major_ticks()
     for tick, val in zip(x_ticks, S):
         if is_spurious(val):
@@ -530,7 +533,6 @@ def visualize_all_paths_annotated(spectrum, spurious_masses=None,
         else:
             tick.label2.set_color('black')
 
-    # Color Y Axis (Left)
     y_ticks = ax.yaxis.get_major_ticks()
     for tick, val in zip(y_ticks, S):
         if is_spurious(val):
@@ -548,17 +550,16 @@ def visualize_all_paths_annotated(spectrum, spurious_masses=None,
 
     # Legend
     custom_lines = [
-        Line2D([0], [0], color='lime', lw=3.5, label='Correct Path (Annotated)'),
-        Line2D([0], [0], color='purple', lw=1.5, linestyle='--', label='Candidate Path (Annotated)'),
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='lightblue', label='Real Signal Node'),
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='pink', label='Spurious Noise Node'),
+        Line2D([0], [0], color='lime', lw=3.5, label='Correct Path'),
+        Line2D([0], [0], color='purple', lw=1.5, linestyle='--', label='Candidate Path'),
+        Line2D([0], [0], marker='*', color='w', markerfacecolor='gold', markersize=10, label='End (w/ Residual)'),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='pink', label='Spurious Node'),
         Line2D([0], [0], color='salmon', lw=2, label='Spurious Axis Label')
     ]
     ax.legend(handles=custom_lines, loc='upper right', bbox_to_anchor=(1.15, 1))
     
     ax.set_title(title, pad=40, fontsize=16)
     
-    # 8. Save vs Show
     if save_path:
         directory = os.path.dirname(save_path)
         if directory and not os.path.exists(directory):
@@ -571,6 +572,86 @@ def visualize_all_paths_annotated(spectrum, spurious_masses=None,
         plt.tight_layout()
         plt.show()
 
+
+
+def visualize_array_index(data_array, target_index):
+    """
+    Visualizes an array of strings, coloring elements based on their 
+    position relative to a target index.
+    
+    Args:
+        data_array (list of str): The input list of strings.
+        target_index (int): The index to highlight.
+    """
+    
+    # 1. Validation
+    if not (0 <= target_index < len(data_array)):
+        print(f"Error: Index {target_index} is out of bounds for array of length {len(data_array)}")
+        return
+
+    # 2. Setup Plot
+    # Adjust figure size based on array length to prevent squishing
+    fig_width = max(6, len(data_array) * 1.5)
+    fig, ax = plt.subplots(figsize=(fig_width, 2))
+    
+    # Define colors
+    COLOR_BEFORE = '#87CEEB'  # Sky Blue
+    COLOR_TARGET = '#FFD700'  # Gold
+    COLOR_AFTER  = '#90EE90'  # Light Green
+    
+    # 3. iterate and Draw
+    for i, content in enumerate(data_array):
+        # Determine color based on index comparison
+        if i < target_index:
+            face_color = COLOR_BEFORE
+            label_text = "Before" if i == 0 else "" # Label logic for legend-like effect (optional)
+        elif i == target_index:
+            face_color = COLOR_TARGET
+            label_text = "Target"
+        else:
+            face_color = COLOR_AFTER
+            label_text = "After" if i == target_index + 1 else ""
+
+        # Draw the rectangle box for the element
+        # (x, y), width, height
+        rect = patches.Rectangle((i, 0), 1, 1, 
+                                 facecolor=face_color, 
+                                 edgecolor='black',
+                                 linewidth=1.5)
+        ax.add_patch(rect)
+        
+        # Add the string text in the center of the box
+        ax.text(i + 0.5, 0.5, str(content), 
+                ha='center', va='center', 
+                fontsize=12, fontweight='bold', color='#333333')
+        
+        # Add small index number below the box
+        ax.text(i + 0.5, -0.2, str(i), 
+                ha='center', va='top', 
+                fontsize=9, color='gray')
+
+    # 4. Final Formatting
+    # Set plot limits
+    ax.set_xlim(0, len(data_array))
+    ax.set_ylim(-0.5, 1.5)
+    
+    # Remove standard axes and ticks
+    ax.axis('off')
+    
+    # Add a title
+    plt.title(f"Array Visualization (Target Index: {target_index})", pad=20)
+    
+    # Create a custom legend manually
+    legend_elements = [
+        patches.Patch(facecolor=COLOR_BEFORE, edgecolor='black', label='Before Index'),
+        patches.Patch(facecolor=COLOR_TARGET, edgecolor='black', label='At Index'),
+        patches.Patch(facecolor=COLOR_AFTER,  edgecolor='black', label='After Index')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1, 1.3))
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -665,10 +746,12 @@ if __name__ == "__main__":
     candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
     
     
-    visualize_all_paths_annotated(full_spec, spurious_masses=noise, 
+    visualize_all_paths(full_spec, spurious_masses=noise, 
                          candidate_paths=candidates, 
                          correct_path=correct, 
                          aa_map=amino_acid_masses_switch,
                          title = sequence,
+                         pep_mass=pep.seq_mass + 18.01056,
                          save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.png'
                          )
+    visualize_array_index(pep.AA_array, target_index=6)
