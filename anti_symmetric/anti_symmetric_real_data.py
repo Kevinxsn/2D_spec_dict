@@ -30,6 +30,7 @@ import connected_graph
 
 
 
+
 amino_acid_masses = {
         "A": 71.03711,   # Alanine
         "R": 156.10111,  # Arginine

@@ -1,16 +1,28 @@
+import os
+import sys
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import re
-import peptide
 import dataframe_image as dfi
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from IPython.display import HTML
-from html2image import Html2Image
-import util
-import os
-import data_parse
 import matplotlib.patches as mpatches
+from html2image import Html2Image
+
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+
+# Directories containing your modules
+vis_dir = parent_dir / "vis"
+
+# Put them at the front of sys.path so they are found first
+sys.path.insert(0, str(vis_dir))
+
+import peptide
+import util
+import data_parse
 import neutral_loss_mass
 
 
@@ -411,13 +423,14 @@ styled_df = df_display.style.apply_index(color_index_series, axis="index") \
 
 html_output = styled_df.to_html(escape=False)
 
-with open(f"vis/temp/{data}_parent.html", "w") as f:
+with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}_parent.html", "w") as f:
     f.write(html_output)
     
     
 hti = Html2Image()
-hti.output_path = "vis/temp/"
-hti.screenshot(html_file=f"vis/temp/{data}_parent.html", save_as=f'{data}_parent_graph3.png')
+hti.output_path = "/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric"
+hti.screenshot(html_file=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}_parent.html", 
+               save_as=f'{data}_parent_graph3.png')
 
 '''
 
