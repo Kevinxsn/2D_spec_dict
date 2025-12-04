@@ -425,14 +425,25 @@ styled_df = df_display.style.apply_index(color_index_series, axis="index") \
 
 html_output = styled_df.to_html(escape=False)
 
-with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}_parent.html", "w") as f:
+html_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.html"
+png_path = f"{data}_parent_table.png"
+output_dir = "/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/"
+
+# 1. Write HTML
+with open(html_path, "w") as f:
     f.write(html_output)
-    
-    
+
+# 2. Generate PNG
 hti = Html2Image()
-hti.output_path = "/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric"
-hti.screenshot(html_file=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}_parent.html", 
-               save_as=f'{data}_parent_graph3.png')
+hti.output_path = output_dir
+hti.screenshot(html_file=html_path, save_as=png_path)
+
+# 3. Delete the HTML file AFTER screenshot is created
+if os.path.exists(html_path):
+    os.remove(html_path)
+    print(f"Deleted temporary file: {html_path}")
+else:
+    print("HTML file not found — nothing to delete.")
 
 '''
 

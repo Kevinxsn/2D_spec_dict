@@ -575,7 +575,7 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 
-def visualize_array_index(data_array, target_index):
+def visualize_array_index(data_array, target_index, save_path=None):
     """
     Visualizes an array of strings, coloring elements based on their 
     position relative to a target index.
@@ -651,8 +651,17 @@ def visualize_array_index(data_array, target_index):
     ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1, 1.3))
 
     # Show the plot
-    plt.tight_layout()
-    plt.show()
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
 
 
 
@@ -744,8 +753,8 @@ if __name__ == "__main__":
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
     
     correct = [(0.0, 18.01056), (332.184804, 18.01056), (419.216834, 18.01056), (419.216834, 484.254614), (566.285244, 484.254614), (566.285244, 613.297204), (679.369304, 613.297204), (679.369304, 742.339794)]
-    candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
-    
+    #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
+    candidates = [list(p) for p in the_max_length_paths]
     
     visualize_all_paths(full_spec, spurious_masses=noise, 
                          candidate_paths=candidates, 
@@ -753,6 +762,7 @@ if __name__ == "__main__":
                          aa_map=amino_acid_masses_switch,
                          title = sequence,
                          pep_mass=pep.seq_mass + 18.01056,
-                         save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.png'
+                         save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png'
                          )
-    visualize_array_index(pep.AA_array, target_index=6)
+    
+    visualize_array_index(pep.AA_array, target_index=6, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
