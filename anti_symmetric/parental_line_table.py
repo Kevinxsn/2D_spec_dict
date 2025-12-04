@@ -26,7 +26,7 @@ import data_parse
 import neutral_loss_mass
 
 
-data = 'PH15_2+'
+data = 'ME4_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -344,7 +344,9 @@ reuslt_df.rename(columns=rename_column_names, inplace=True)
         
 
 
+reuslt_df = reuslt_df.loc[['Parent', 'Col_Count','Ion Mass']]
 print(reuslt_df)
+
 reuslt_df = reuslt_df.map(lambda x: x.replace('\n', '<br>') if isinstance(x, str) else x)
 
 
