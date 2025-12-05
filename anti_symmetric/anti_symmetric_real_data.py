@@ -670,7 +670,7 @@ def visualize_array_index(data_array, target_index, save_path=None):
 
 
 if __name__ == "__main__":
-    data = 'ME9_2+'
+    data = 'ME9_3+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -766,3 +766,4 @@ if __name__ == "__main__":
                          )
     
     visualize_array_index(pep.AA_array, target_index=6, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
+    print(lower_half_modified)
