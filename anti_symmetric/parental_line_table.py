@@ -26,7 +26,7 @@ import data_parse
 import neutral_loss_mass
 
 
-data = 'ME4_3+'
+data = 'ME9_2+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),

@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from pathlib import Path
 import matplotlib.patches as patches
-
+import anti_symmetric_util as ay_util
+import img2pdf
 
 # Directory where *this script* is located
 current_dir = Path(__file__).resolve().parent
@@ -575,93 +576,6 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 
-def visualize_array_index(data_array, target_index, save_path=None):
-    """
-    Visualizes an array of strings, coloring elements based on their 
-    position relative to a target index.
-    
-    Args:
-        data_array (list of str): The input list of strings.
-        target_index (int): The index to highlight.
-    """
-    
-    # 1. Validation
-    if not (0 <= target_index < len(data_array)):
-        print(f"Error: Index {target_index} is out of bounds for array of length {len(data_array)}")
-        return
-
-    # 2. Setup Plot
-    # Adjust figure size based on array length to prevent squishing
-    fig_width = max(6, len(data_array) * 1.5)
-    fig, ax = plt.subplots(figsize=(fig_width, 2))
-    
-    # Define colors
-    COLOR_BEFORE = '#87CEEB'  # Sky Blue
-    COLOR_TARGET = '#FFD700'  # Gold
-    COLOR_AFTER  = '#90EE90'  # Light Green
-    
-    # 3. iterate and Draw
-    for i, content in enumerate(data_array):
-        # Determine color based on index comparison
-        if i < target_index:
-            face_color = COLOR_BEFORE
-            label_text = "Before" if i == 0 else "" # Label logic for legend-like effect (optional)
-        elif i == target_index:
-            face_color = COLOR_TARGET
-            label_text = "Target"
-        else:
-            face_color = COLOR_AFTER
-            label_text = "After" if i == target_index + 1 else ""
-
-        # Draw the rectangle box for the element
-        # (x, y), width, height
-        rect = patches.Rectangle((i, 0), 1, 1, 
-                                 facecolor=face_color, 
-                                 edgecolor='black',
-                                 linewidth=1.5)
-        ax.add_patch(rect)
-        
-        # Add the string text in the center of the box
-        ax.text(i + 0.5, 0.5, str(content), 
-                ha='center', va='center', 
-                fontsize=12, fontweight='bold', color='#333333')
-        
-        # Add small index number below the box
-        ax.text(i + 0.5, -0.2, str(i), 
-                ha='center', va='top', 
-                fontsize=9, color='gray')
-
-    # 4. Final Formatting
-    # Set plot limits
-    ax.set_xlim(0, len(data_array))
-    ax.set_ylim(-0.5, 1.5)
-    
-    # Remove standard axes and ticks
-    ax.axis('off')
-    
-    # Add a title
-    plt.title(f"Array Visualization (Target Index: {target_index})", pad=20)
-    
-    # Create a custom legend manually
-    legend_elements = [
-        patches.Patch(facecolor=COLOR_BEFORE, edgecolor='black', label='Before Index'),
-        patches.Patch(facecolor=COLOR_TARGET, edgecolor='black', label='At Index'),
-        patches.Patch(facecolor=COLOR_AFTER,  edgecolor='black', label='After Index')
-    ]
-    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1, 1.3))
-
-    # Show the plot
-    if save_path:
-        directory = os.path.dirname(save_path)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        plt.tight_layout()
-        plt.savefig(save_path, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        print(f"Graph saved successfully to: {save_path}")
-    else:
-        plt.tight_layout()
-        plt.show()
 
 
 
@@ -670,7 +584,7 @@ def visualize_array_index(data_array, target_index, save_path=None):
 
 
 if __name__ == "__main__":
-    data = 'ME9_3+'
+    data = 'ME9_2+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -718,12 +632,12 @@ if __name__ == "__main__":
     
     allowed_mass_list = list(AA_MASSES.values()) + list(DOUBLE_AA_MASSES.values()) + list(TRIPLE_AA_MASSES.values()) #+ list(QUADRA_AA_MASSES.values())
     merge_close_values = connected_graph.merge_close_values
-    allowed_mass_list = merge_close_values(allowed_mass_list, 0.1)
+    allowed_mass_list = merge_close_values(allowed_mass_list, 0.01)
     
     paths = find_peptide_paths(
         lower_half_modified, 
         allowed_masses=allowed_mass_list, 
-        tolerance=0.01,
+        tolerance=0.02,
         start_point=(0.0, 18.01056)
     )
     
@@ -752,7 +666,7 @@ if __name__ == "__main__":
     
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
     
-    correct = [(0.0, 18.01056), (332.184804, 18.01056), (419.216834, 18.01056), (419.216834, 484.254614), (566.285244, 484.254614), (566.285244, 613.297204), (679.369304, 613.297204), (679.369304, 742.339794)]
+    correct = [(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]
     #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
     candidates = [list(p) for p in the_max_length_paths]
     
@@ -765,5 +679,20 @@ if __name__ == "__main__":
                          save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png'
                          )
     
-    visualize_array_index(pep.AA_array, target_index=6, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
+    ay_util.visualize_array_index(pep.AA_array, target_index=6, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
     print(lower_half_modified)
+    
+    universal_set = lower_half_modified
+    print(candidates)
+    cons, non_cons = ay_util.find_conserved_numbers(candidates, universal_set)
+    print(cons, non_cons)
+    ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
+    
+    images = [f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png', 
+              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.png",
+              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png", 
+              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png']
+
+    # Create the PDF
+    with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.pdf", "wb") as f:
+        f.write(img2pdf.convert(images))
