@@ -617,7 +617,7 @@ if __name__ == "__main__":
             return None
 
     df['conserve_line'] = df.apply(classify_conserve_line, axis = 1)
-    my_peaks, sequence, pep = connected_graph.build_mass_list(data)
+    my_peaks, sequence, pep, paired_peaks = connected_graph.build_mass_list_with_ion(data)
     
     sorted_array = [0.0] + my_peaks + [pep.seq_mass]
     
@@ -688,6 +688,7 @@ if __name__ == "__main__":
     print(cons, non_cons)
     ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
     
+    '''
     images = [f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png', 
               f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.png",
               f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png", 
@@ -696,3 +697,4 @@ if __name__ == "__main__":
     # Create the PDF
     with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.pdf", "wb") as f:
         f.write(img2pdf.convert(images))
+    '''

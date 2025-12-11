@@ -237,3 +237,101 @@ def visualize_sets(universal_set, set_one, set_two, save_path=None):
     else:
         plt.tight_layout()
         plt.show()
+        
+
+
+def ion_simplify(the_input):
+    if the_input is None:
+        return 'spurious'
+    elif the_input[0] == 'y':
+        return 'y'
+    elif the_input[0] == 'b'and len(the_input) > 1 and the_input[1] != 'i':
+        return 'b'
+    else:
+        return 'spurious'
+
+
+def draw_aligned_comparison(ground_truth, other_lists):
+    """
+    Draws a comparison of mass spec lists.
+    - Ground Truth is on top.
+    - Subsets are below.
+    - Numbers align vertically based on the Ground Truth value.
+    - Vertical lines removed.
+    - Increased spacing between numbers.
+    """
+    
+    # 1. PRE-PROCESSING
+    # Sort Ground Truth by value so the graph flows naturally from low to high
+    ground_truth.sort(key=lambda x: x[0])
+    
+    # Create a map to ensure vertical alignment: { rounded_value : x_index }
+    # We use round(val, 3) to avoid floating point mismatch issues
+    val_to_x_map = {round(item[0], 3): i for i, item in enumerate(ground_truth)}
+    
+    # Combine all lists to find all unique categories for the legend
+    all_items = ground_truth + [item for sublist in other_lists for item in sublist]
+    all_categories = sorted(list(set([ion_simplify(x[1]) for x in all_items])))
+    
+    # 2. SETUP FIGURE
+    # Height = (Number of subsets + 1 for GT) * spacing
+    # CHANGE: Increased width multiplier from 1.2 to 2.5 to separate numbers
+    total_rows = 1 + len(other_lists)
+    fig, ax = plt.subplots(figsize=(len(ground_truth) * 2.5, total_rows * 1.0))
+    
+    ax.axis('off')
+    
+    # 3. DEFINE COLORS
+    palette = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#34495e']
+    cat_to_color = {cat: palette[i % len(palette)] for i, cat in enumerate(all_categories)}
+
+    # 4. DRAWING FUNCTION
+    def plot_row(data, row_index, label):
+        """Helper to plot a single row of numbers"""
+        y_pos = row_index
+        
+        # Add a label for the row (e.g., "Ground Truth", "List 1")
+        ax.text(-1.0, y_pos, label, fontsize=12, fontweight='bold', ha='right', va='center', color='#333')
+        
+        for value, cat in data:
+            val_key = round(value, 3)
+            
+            # Only plot if this value exists in our Ground Truth Map
+            if val_key in val_to_x_map:
+                x_pos = val_to_x_map[val_key]
+                
+                # Draw the number
+                ax.text(
+                    x=x_pos,
+                    y=y_pos,
+                    s=str(val_key),
+                    color=cat_to_color[ion_simplify(cat)],
+                    fontsize=14,
+                    fontweight='bold',
+                    ha='center',
+                    va='center'
+                )
+
+    # 5. EXECUTE PLOTTING
+    
+    # Plot Ground Truth (Top Row)
+    plot_row(ground_truth, total_rows - 1, "Ground Truth")
+    
+    # Plot Subsets (Iterate downwards)
+    for i, subset in enumerate(other_lists):
+        row_y = (total_rows - 2) - i
+        plot_row(subset, row_y, f"Subset {i+1}")
+
+    # 6. VISUAL POLISH
+    # CHANGE: Removed ax.axvline loop (Vertical lines are gone)
+
+    # Set limits
+    ax.set_xlim(-1.5, len(ground_truth)) 
+    ax.set_ylim(-0.5, total_rows - 0.5)
+
+    # Legend
+    legend_handles = [mpatches.Patch(color=cat_to_color[cat], label=cat) for cat in all_categories]
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=len(all_categories), frameon=False)
+    
+    plt.tight_layout()
+    plt.show()

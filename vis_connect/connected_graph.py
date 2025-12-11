@@ -660,8 +660,122 @@ def build_mass_list(
     #print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
-    #print(df_parent[['mass1_charge', 'mass2_charge']])
+    print(df_parent[['mass1_charge', 'mass2_charge', 'ion1', 'ion2']])
     return mass_list, f'{data}: {sequence}', pep
+
+
+
+def build_mass_list_with_ion(
+    data: str,
+    *,
+    base_dir: str = None,
+    head_n: int = 50,
+    conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3')
+    ) -> list:
+    """
+    Given a dataset name like 'ME4_2+', read its annotated CSV, compute classifications,
+    and return the unique sorted masses on the Parent conservation line.
+
+    Parameters
+    ----------
+    data : str
+        Base name without extension (e.g., 'ME4_2+').
+    base_dir : str, optional
+        Directory to resolve the CSV path from. Defaults to the directory of this file.
+    head_n : int, optional
+        Use only the first N rows of the CSV for processing (default 50).
+    conserve_rows : iterable[str]
+        Conservation-line labels to build the mass dictionary.
+
+    Returns
+    -------
+    list[float]
+        Sorted unique masses from 'correct_mass1' and 'correct_mass2' on the Parent line.
+    """
+    # Resolve file path
+    csv_name = f"{data}.csv"
+    if base_dir is None:
+        base_dir = os.path.dirname(__file__)
+    file_path = os.path.abspath(
+        os.path.join(
+            base_dir,
+            "../data/Top_Correlations_At_Full_Num_Scans_PCov/annotated",
+            csv_name,
+        )
+    )
+
+    # Build peptide from sequence name parsed out of the csv_name
+    sequence = util.name_ouput(csv_name)  # keep your existing helper name
+    pep = peptide.Pep(sequence)
+    pep_mass= pep.pep_mass
+
+    # Read and pre-filter
+    df = pd.read_csv(file_path)
+    df = df[df["Index"].notna()]
+    if head_n:
+        df = df.head(head_n)
+
+    # Domain processing + classification
+    results = data_parse.process_ion_dataframe(df, pep)
+    results["classification"] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
+
+    # Normalize loss columns
+    results["loss1"] = results["loss1"].replace({None: np.nan})
+    results["loss2"] = results["loss2"].replace({None: np.nan})
+
+    # Build conservation-line mass dictionary
+    conserve_line_mass_dict = {
+        "Parent": pep.pep_mass,
+        "a": pep.pep_mass - 28.0106,
+    }
+    for label in conserve_rows:
+        if label not in conserve_line_mass_dict:
+            conserve_line_mass_dict[label] = pep.pep_mass - neutral_loss_mass.mass_of_loss(label)
+
+    # Tag rows by closest conservation line (±1 Da window)
+    def classify_conserve_line(row):
+        m = row["chosen_sum"]
+        for label, target in conserve_line_mass_dict.items():
+            if (target - 1) < m < (target + 1):
+                return label
+        return None
+
+    results["conserve_line"] = results.apply(classify_conserve_line, axis=1)
+
+    # Collect masses from the Parent line
+    df_parent = results[results["conserve_line"] == "Parent"]
+    # Suppose your DataFrame is named df
+    df_parent = df_parent.dropna(subset=['charge1'])
+    df_parent = df_parent.dropna(subset=['charge2'])
+    #print(df_parent)
+    
+    def mass_mul_charge(row):
+        mass1_charge = None
+        mass2_charge = None
+        if row['charge1'][0] == '1':
+            mass1_charge = row['correct_mass1']
+        elif row['charge1'][0] == '2':
+            mass1_charge = row['correct_mass1'] * 2 - proton
+
+        if row['charge2'][0] == '1':
+            mass2_charge = row['correct_mass2']
+        elif row['charge2'][0] == '2':
+            mass2_charge = row['correct_mass2'] * 2 - proton
+
+        #return mass1_charge, mass2_charge
+        return mass1_charge - proton, mass2_charge - proton
+        
+            
+    df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(mass_mul_charge, axis=1, result_type='expand')
+    #print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
+    mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
+    mass_list.sort()
+    print(df_parent[['mass1_charge', 'mass2_charge', 'ion1', 'ion2']])
+    paried_list = list(zip(df_parent['mass1_charge'], df_parent['ion1'])) \
+       + list(zip(df_parent['mass2_charge'], df_parent['ion2']))
+    print(paried_list)
+    return mass_list, f'{data}: {sequence}', pep, paried_list
+
 
 
 # --- NEW: Pathfinding Function ---
