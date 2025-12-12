@@ -584,7 +584,7 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 if __name__ == "__main__":
-    data = 'ME9_2+'
+    data = 'ME9_3+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -637,7 +637,7 @@ if __name__ == "__main__":
     paths = find_peptide_paths(
         lower_half_modified, 
         allowed_masses=allowed_mass_list, 
-        tolerance=0.02,
+        tolerance=0.01,
         start_point=(0.0, 18.01056)
     )
     
@@ -655,20 +655,26 @@ if __name__ == "__main__":
 
 
     print(len(paths), "paths found.", "Max length:", the_max, 'There are', len(the_max_length_pep), "paths of max length.")
+    
+    
     print("Max length paths:")
     the_max_length_pep = set([path_to_seq_multiple_edges(p, pep.seq_mass + 18.01056) for p in paths if len(p) == the_max])
     
     print(format_path_to_seq(the_max_length_pep))
     
     real_spectrum = lower_half_modified
-    noise = []
+    noise = [557.2572246963999]
     full_spec = sorted(real_spectrum + noise)
     
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
     
-    correct = [(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]
+    #correct = [(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]
+    correct = [(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (300.122204, 566.285244), (613.2971779999999, 566.285244), (613.2971779999999, 679.369304)]
     #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
-    candidates = [list(p) for p in the_max_length_paths]
+    
+    
+    #candidates = [list(p) for p in the_max_length_paths]
+    candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
     
     visualize_all_paths(full_spec, spurious_masses=noise, 
                          candidate_paths=candidates, 
@@ -682,19 +688,26 @@ if __name__ == "__main__":
     ay_util.visualize_array_index(pep.AA_array, target_index=6, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
     print(lower_half_modified)
     
-    universal_set = lower_half_modified
-    print(candidates)
-    cons, non_cons = ay_util.find_conserved_numbers(candidates, universal_set)
-    print(cons, non_cons)
-    ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
+    #old conserved number code
+    #universal_set = lower_half_modified
+    #print(candidates)
+    #cons, non_cons = ay_util.find_conserved_numbers(candidates, universal_set)
+    #print(cons, non_cons)
+    #ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
     
-    '''
-    images = [f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png', 
-              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.png",
-              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png", 
-              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png']
+    ground_truth = paired_peaks
+    candidates = [ay_util.mass_b_y_indentification(i) for i in candidates]
+    ay_util.draw_aligned_comparison(ground_truth, candidates, save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
+    ay_util.draw_sequence_with_middle_points(ay_util.mass_b_y_indentification_with_middle(correct), save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png")
+    
+    
+    images = [f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png",
+              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png', 
+              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.png",         
+              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png',
+              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png"]
 
     # Create the PDF
     with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.pdf", "wb") as f:
         f.write(img2pdf.convert(images))
-    '''
+    

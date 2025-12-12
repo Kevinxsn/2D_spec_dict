@@ -247,65 +247,82 @@ def ion_simplify(the_input):
         return 'y'
     elif the_input[0] == 'b'and len(the_input) > 1 and the_input[1] != 'i':
         return 'b'
+    elif the_input == 'b':
+        return 'b'
     else:
         return 'spurious'
+    
+def mass_b_y_indentification(input_list):
+    
+    result = []
+    b_ion_mass = set([input_list[0][0]])
+    y_ion_mass = set([input_list[0][1]])
+    for i in input_list:
+        b_ion_mass.add(i[0])
+        y_ion_mass.add(i[1])
+    b_ion_mass.remove(input_list[0][0])
+    y_ion_mass.remove(input_list[0][1])
+    b_ion_mass = list(b_ion_mass)
+    y_ion_mass = list(y_ion_mass)
+    
+    for i in b_ion_mass:
+        result.append((i, 'b'))
+    for j in y_ion_mass:
+        result.append((j, 'y'))
+    return result
 
 
-def draw_aligned_comparison(ground_truth, other_lists):
+def draw_aligned_comparison(ground_truth, other_lists, save_path=None):
     """
-    Draws a comparison of mass spec lists.
-    - Ground Truth is on top.
-    - Subsets are below.
-    - Numbers align vertically based on the Ground Truth value.
-    - Vertical lines removed.
-    - Increased spacing between numbers.
+    Draws a comparison of mass spec lists with fixed colors for b, y, and spurious.
     """
     
-    # 1. PRE-PROCESSING
-    # Sort Ground Truth by value so the graph flows naturally from low to high
+    # 1. DEFINE FIXED COLORS
+    # Map the simplified categories to specific colors
+    FIXED_COLORS = {
+        'b': '#87CEEB',        # Blue
+        'y': '#90EE90',        # Red
+        'spurious': '#e74c3c', # Gray
+        'unknown': '#000000'   # Black (fallback)
+    }
+
+    # 2. PRE-PROCESSING
+    # Sort Ground Truth by value
     ground_truth.sort(key=lambda x: x[0])
     
     # Create a map to ensure vertical alignment: { rounded_value : x_index }
-    # We use round(val, 3) to avoid floating point mismatch issues
     val_to_x_map = {round(item[0], 3): i for i, item in enumerate(ground_truth)}
     
-    # Combine all lists to find all unique categories for the legend
-    all_items = ground_truth + [item for sublist in other_lists for item in sublist]
-    all_categories = sorted(list(set([ion_simplify(x[1]) for x in all_items])))
-    
-    # 2. SETUP FIGURE
-    # Height = (Number of subsets + 1 for GT) * spacing
-    # CHANGE: Increased width multiplier from 1.2 to 2.5 to separate numbers
+    # 3. SETUP FIGURE
     total_rows = 1 + len(other_lists)
     fig, ax = plt.subplots(figsize=(len(ground_truth) * 2.5, total_rows * 1.0))
-    
     ax.axis('off')
     
-    # 3. DEFINE COLORS
-    palette = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#34495e']
-    cat_to_color = {cat: palette[i % len(palette)] for i, cat in enumerate(all_categories)}
-
     # 4. DRAWING FUNCTION
     def plot_row(data, row_index, label):
         """Helper to plot a single row of numbers"""
         y_pos = row_index
         
-        # Add a label for the row (e.g., "Ground Truth", "List 1")
+        # Row Label
         ax.text(-1.0, y_pos, label, fontsize=12, fontweight='bold', ha='right', va='center', color='#333')
         
-        for value, cat in data:
+        for value, raw_cat in data:
             val_key = round(value, 3)
             
             # Only plot if this value exists in our Ground Truth Map
             if val_key in val_to_x_map:
                 x_pos = val_to_x_map[val_key]
                 
+                # Determine color based on simplified category
+                simple_cat = ion_simplify(raw_cat)
+                text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
+                
                 # Draw the number
                 ax.text(
                     x=x_pos,
                     y=y_pos,
                     s=str(val_key),
-                    color=cat_to_color[ion_simplify(cat)],
+                    color=text_color,
                     fontsize=14,
                     fontweight='bold',
                     ha='center',
@@ -313,7 +330,6 @@ def draw_aligned_comparison(ground_truth, other_lists):
                 )
 
     # 5. EXECUTE PLOTTING
-    
     # Plot Ground Truth (Top Row)
     plot_row(ground_truth, total_rows - 1, "Ground Truth")
     
@@ -323,15 +339,128 @@ def draw_aligned_comparison(ground_truth, other_lists):
         plot_row(subset, row_y, f"Subset {i+1}")
 
     # 6. VISUAL POLISH
-    # CHANGE: Removed ax.axvline loop (Vertical lines are gone)
-
-    # Set limits
     ax.set_xlim(-1.5, len(ground_truth)) 
     ax.set_ylim(-0.5, total_rows - 0.5)
 
-    # Legend
-    legend_handles = [mpatches.Patch(color=cat_to_color[cat], label=cat) for cat in all_categories]
-    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=len(all_categories), frameon=False)
+    # Manual Legend for the 3 fixed categories
+    legend_handles = [
+        mpatches.Patch(color=FIXED_COLORS['b'], label='b-ion'),
+        mpatches.Patch(color=FIXED_COLORS['y'], label='y-ion'),
+        mpatches.Patch(color=FIXED_COLORS['spurious'], label='Spurious')
+    ]
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3, frameon=False)
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
+
+        
+def mass_b_y_indentification_with_middle(input_list):
+    result = []
+    b_ion_mass = set([input_list[0][0]])
+    y_ion_mass = set([input_list[0][1]])
+    for i in input_list:
+        b_ion_mass.add(i[0])
+        y_ion_mass.add(i[1])
+    b_ion_mass.remove(input_list[0][0])
+    y_ion_mass.remove(input_list[0][1])
+    b_ion_mass = list(b_ion_mass)
+    y_ion_mass = list(y_ion_mass)
     
-    plt.tight_layout()
-    plt.show()
+    for i in b_ion_mass:
+        result.append((i, 'b'))
+    for j in y_ion_mass:
+        result.append((j, 'y'))
+    
+    return result, [input_list[-1][0], input_list[-1][1]]
+
+
+def draw_sequence_with_middle_points(data_tuple, save_path=None):
+    """
+    Draws a sequence of numbers where:
+    1. The main list (b/y ions) is sorted and displayed first.
+    2. The 'middle points' are appended to the end of the visualization.
+    3. Colors are assigned strictly to 'b', 'y', and 'middle point'.
+    
+    Args:
+        data_tuple (tuple): (main_list, middle_points_list)
+            e.g. ([(484.2, 'b'), ...], [742.3, 679.3])
+    """
+    # 1. Unpack the data
+    main_data, middle_points_values = data_tuple
+    
+    # 2. Prepare the Data
+    # Sort the main data by value (standard for mass spec visualization)
+    main_data_sorted = sorted(main_data, key=lambda x: x[0])
+    
+    # Create tuples for the middle points with the specific category
+    middle_data = [(val, 'middle point') for val in middle_points_values]
+    
+    # Combine: Main data first, then Middle points appended at the end
+    full_sequence = main_data_sorted + middle_data
+    
+    # 3. Define Fixed Colors
+    # b = Blue, y = Red, middle point = Green (or Purple/Orange as preferred)
+    COLORS = {
+        'b': '#87CEEB',         # Blue
+        'y': '#90EE90',         # Red
+        'middle point': '#FFD700' # Green (Distinct)
+    }
+
+    # 4. Setup Figure
+    # Width depends on total number of items
+    fig, ax = plt.subplots(figsize=(len(full_sequence) * 1.5, 2))
+    ax.axis('off')
+    
+    # 5. Draw the Numbers
+    for i, (value, category) in enumerate(full_sequence):
+        # Round for display
+        display_text = str(round(value, 3))
+        
+        # Determine Color
+        # We simplify category to handle potential whitespace or casing, though inputs seem clean
+        cat_key = category.strip() 
+        text_color = COLORS.get(cat_key, '#000000') # Default to black if unknown
+        
+        # Plot Text
+        ax.text(
+            x=i, 
+            y=0.5, 
+            s=display_text, 
+            color=text_color, 
+            fontsize=14, 
+            fontweight='bold', 
+            ha='center', 
+            va='center'
+        )
+
+    # 6. Visual Polish
+    ax.set_xlim(-0.5, len(full_sequence) - 0.5)
+    ax.set_ylim(0, 1)
+    
+    # Add Legend
+    legend_handles = [
+        mpatches.Patch(color=COLORS['b'], label='b-ion'),
+        mpatches.Patch(color=COLORS['y'], label='y-ion'),
+        mpatches.Patch(color=COLORS['middle point'], label='Middle Point')
+    ]
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.2), ncol=3, frameon=False)
+    
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
