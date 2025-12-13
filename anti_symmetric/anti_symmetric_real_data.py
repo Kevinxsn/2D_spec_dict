@@ -617,7 +617,8 @@ if __name__ == "__main__":
             return None
 
     df['conserve_line'] = df.apply(classify_conserve_line, axis = 1)
-    my_peaks, sequence, pep, paired_peaks = connected_graph.build_mass_list_with_ion(data)
+    my_peaks, sequence, pep, paired_peaks, paired_mass_dict = connected_graph.build_mass_list_with_ion(data)
+    
     
     sorted_array = [0.0] + my_peaks + [pep.seq_mass]
     
@@ -696,7 +697,7 @@ if __name__ == "__main__":
     #ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
     
     ground_truth = paired_peaks
-    candidates = [ay_util.mass_b_y_indentification(i) for i in candidates]
+    candidates = [ay_util.mass_b_y_indentification(i, paired_dict=paired_mass_dict) for i in candidates]
     ay_util.draw_aligned_comparison(ground_truth, candidates, save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
     ay_util.draw_sequence_with_middle_points(ay_util.mass_b_y_indentification_with_middle(correct), save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png")
     

@@ -252,7 +252,7 @@ def ion_simplify(the_input):
     else:
         return 'spurious'
     
-def mass_b_y_indentification(input_list):
+def mass_b_y_indentification(input_list, paired_dict):
     
     result = []
     b_ion_mass = set([input_list[0][0]])
@@ -267,8 +267,10 @@ def mass_b_y_indentification(input_list):
     
     for i in b_ion_mass:
         result.append((i, 'b'))
+        result.append((paired_dict[i], 'y'))
     for j in y_ion_mass:
         result.append((j, 'y'))
+        result.append((paired_dict[j], 'b'))
     return result
 
 
