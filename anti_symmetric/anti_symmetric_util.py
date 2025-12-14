@@ -274,95 +274,6 @@ def mass_b_y_indentification(input_list, paired_dict):
     return result
 
 
-def draw_aligned_comparison(ground_truth, other_lists, save_path=None):
-    """
-    Draws a comparison of mass spec lists with fixed colors for b, y, and spurious.
-    """
-    
-    # 1. DEFINE FIXED COLORS
-    # Map the simplified categories to specific colors
-    FIXED_COLORS = {
-        'b': '#87CEEB',        # Blue
-        'y': '#90EE90',        # Red
-        'spurious': '#e74c3c', # Gray
-        'unknown': '#000000'   # Black (fallback)
-    }
-
-    # 2. PRE-PROCESSING
-    # Sort Ground Truth by value
-    ground_truth.sort(key=lambda x: x[0])
-    
-    # Create a map to ensure vertical alignment: { rounded_value : x_index }
-    val_to_x_map = {round(item[0], 3): i for i, item in enumerate(ground_truth)}
-    
-    # 3. SETUP FIGURE
-    total_rows = 1 + len(other_lists)
-    fig, ax = plt.subplots(figsize=(len(ground_truth) * 2.5, total_rows * 1.0))
-    ax.axis('off')
-    
-    # 4. DRAWING FUNCTION
-    def plot_row(data, row_index, label):
-        """Helper to plot a single row of numbers"""
-        y_pos = row_index
-        
-        # Row Label
-        ax.text(-1.0, y_pos, label, fontsize=12, fontweight='bold', ha='right', va='center', color='#333')
-        
-        for value, raw_cat in data:
-            val_key = round(value, 3)
-            
-            # Only plot if this value exists in our Ground Truth Map
-            if val_key in val_to_x_map:
-                x_pos = val_to_x_map[val_key]
-                
-                # Determine color based on simplified category
-                simple_cat = ion_simplify(raw_cat)
-                text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
-                
-                # Draw the number
-                ax.text(
-                    x=x_pos,
-                    y=y_pos,
-                    s=str(val_key),
-                    color=text_color,
-                    fontsize=14,
-                    fontweight='bold',
-                    ha='center',
-                    va='center'
-                )
-
-    # 5. EXECUTE PLOTTING
-    # Plot Ground Truth (Top Row)
-    plot_row(ground_truth, total_rows - 1, "Ground Truth")
-    
-    # Plot Subsets (Iterate downwards)
-    for i, subset in enumerate(other_lists):
-        row_y = (total_rows - 2) - i
-        plot_row(subset, row_y, f"Subset {i+1}")
-
-    # 6. VISUAL POLISH
-    ax.set_xlim(-1.5, len(ground_truth)) 
-    ax.set_ylim(-0.5, total_rows - 0.5)
-
-    # Manual Legend for the 3 fixed categories
-    legend_handles = [
-        mpatches.Patch(color=FIXED_COLORS['b'], label='b-ion'),
-        mpatches.Patch(color=FIXED_COLORS['y'], label='y-ion'),
-        mpatches.Patch(color=FIXED_COLORS['spurious'], label='Spurious')
-    ]
-    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3, frameon=False)
-    if save_path:
-        directory = os.path.dirname(save_path)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        plt.tight_layout()
-        plt.savefig(save_path, bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        print(f"Graph saved successfully to: {save_path}")
-    else:
-        plt.tight_layout()
-        plt.show()
-
         
 def mass_b_y_indentification_with_middle(input_list):
     result = []
@@ -382,6 +293,121 @@ def mass_b_y_indentification_with_middle(input_list):
         result.append((j, 'y'))
     
     return result, [input_list[-1][0], input_list[-1][1]]
+
+
+
+def draw_aligned_comparison(ground_truth, other_lists, aa_converter=None, save_path=None):
+    """
+    Draws a comparison of mass spec lists with annotations for b-ions in Ground Truth.
+    
+    Args:
+        ground_truth: List of tuples (value, label)
+        other_lists: List of lists containing subsets
+        aa_converter: A function that takes a label (e.g., 'b3') and returns the Amino Acid string (e.g., 'A')
+        save_path: Optional path to save the image
+    """
+    
+    # 1. DEFINE FIXED COLORS
+    FIXED_COLORS = {
+        'b': '#87CEEB',        # SkyBlue
+        'y': '#90EE90',        # LightGreen
+        'spurious': '#e74c3c', # Red/Gray
+        'unknown': '#000000'   # Black
+    }
+
+    # 2. PRE-PROCESSING
+    ground_truth.sort(key=lambda x: x[0])
+    
+    # Map rounded values to x-indices for alignment
+    val_to_x_map = {round(item[0], 3): i for i, item in enumerate(ground_truth)}
+    
+    # 3. SETUP FIGURE
+    total_rows = 1 + len(other_lists)
+    # Increase height slightly to make room for annotations
+    fig, ax = plt.subplots(figsize=(len(ground_truth) * 2.5, total_rows * 1.2))
+    ax.axis('off')
+    
+    # 4. DRAWING FUNCTION
+    def plot_row(data, row_index, label, is_ground_truth=False):
+        """Helper to plot a single row of numbers"""
+        y_pos = row_index
+        
+        # Draw Row Label
+        ax.text(-1.0, y_pos, label, fontsize=12, fontweight='bold', ha='right', va='center', color='#333')
+        
+        for value, raw_cat in data:
+            val_key = round(value, 3)
+            
+            # Only plot if this value aligns with Ground Truth columns
+            if val_key in val_to_x_map:
+                x_pos = val_to_x_map[val_key]
+                
+                simple_cat = ion_simplify(raw_cat)
+                text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
+                
+                # Draw the Mass Value
+                ax.text(
+                    x=x_pos,
+                    y=y_pos,
+                    s=str(val_key),
+                    color=text_color,
+                    fontsize=14,
+                    fontweight='bold',
+                    ha='center',
+                    va='center'
+                )
+
+                # --- NEW: ANNOTATION LOGIC ---
+                # If this is Ground Truth AND it's a b-ion AND we have a converter
+                if is_ground_truth and simple_cat == 'b' and aa_converter:
+                    try:
+                        aa_label = aa_converter(raw_cat) # Convert 'b3' -> 'A'
+                        
+                        # Draw the Amino Acid letter above the number
+                        ax.text(
+                            x=x_pos,
+                            y=y_pos + 0.35,  # Offset y to place above
+                            s=aa_label,
+                            color=FIXED_COLORS['b'], # Match the b-ion color
+                            fontsize=10,
+                            fontweight='bold',
+                            ha='center',
+                            va='bottom'      # Anchor bottom of text to the offset point
+                        )
+                    except Exception as e:
+                        print(f"Error converting label {raw_cat}: {e}")
+
+    # 5. EXECUTE PLOTTING
+    # Plot Ground Truth (Top Row) - Set is_ground_truth=True
+    plot_row(ground_truth, total_rows - 1, "Ground Truth", is_ground_truth=True)
+    
+    # Plot Subsets (Iterate downwards)
+    for i, subset in enumerate(other_lists):
+        row_y = (total_rows - 2) - i
+        plot_row(subset, row_y, f"Subset {i+1}", is_ground_truth=False)
+
+    # 6. VISUAL POLISH
+    ax.set_xlim(-1.5, len(ground_truth)) 
+    ax.set_ylim(-0.5, total_rows + 0.2) # Added space at top for annotations
+
+    legend_handles = [
+        mpatches.Patch(color=FIXED_COLORS['b'], label='b-ion'),
+        mpatches.Patch(color=FIXED_COLORS['y'], label='y-ion'),
+        mpatches.Patch(color=FIXED_COLORS['spurious'], label='Spurious')
+    ]
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3, frameon=False)
+
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
 
 
 def draw_sequence_with_middle_points(data_tuple, save_path=None):
@@ -466,3 +492,19 @@ def draw_sequence_with_middle_points(data_tuple, save_path=None):
     else:
         plt.tight_layout()
         plt.show()
+        
+
+def get_corresponded_aa(the_peptide, the_ion_name):
+    # Given a peptide sequence and an ion name (e.g., 'b3', 'y5'), return the corresponding amino acid.
+    
+    if the_ion_name is None or len(the_ion_name) < 2:
+        return None
+    ion_type = the_ion_name[0]  # 'b' or 'y'
+    ion_index = int(the_ion_name[1:])
+    if ion_type == 'b':
+        if 1 <= ion_index <= len(the_peptide):
+            return the_peptide.AA_array[ion_index - 1]  # b-ions are 1-indexed
+    elif ion_type == 'y':
+        if 1 <= ion_index <= len(the_peptide):
+            return the_peptide.AA_array[-ion_index]  # y-ions count from the end
+    

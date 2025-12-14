@@ -773,7 +773,6 @@ def build_mass_list_with_ion(
     print(df_parent[['mass1_charge', 'mass2_charge', 'ion1', 'ion2']])
     paried_list = list(zip(df_parent['mass1_charge'], df_parent['ion1'])) \
        + list(zip(df_parent['mass2_charge'], df_parent['ion2']))
-    print(paried_list)
     
     paired_mass = list(zip(df_parent['mass1_charge'], df_parent['mass2_charge']))
     paired_mass_dict = {}

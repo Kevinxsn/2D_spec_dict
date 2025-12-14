@@ -696,9 +696,24 @@ if __name__ == "__main__":
     #print(cons, non_cons)
     #ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
     
+    def get_corresponded_aa(the_ion_name, the_peptide = pep):
+        # Given a peptide sequence and an ion name (e.g., 'b3', 'y5'), return the corresponding amino acid.
+        
+        if the_ion_name is None or len(the_ion_name) < 2:
+            return None
+        ion_type = the_ion_name[0]  # 'b' or 'y'
+        ion_index = int(the_ion_name[1:])
+        if ion_type == 'b':
+            if 1 <= ion_index <= len(the_peptide.AA_array):
+                return the_peptide.AA_array[ion_index - 1]  # b-ions are 1-indexed
+        elif ion_type == 'y':
+            if 1 <= ion_index <= len(the_peptide.AA_array):
+                return the_peptide.AA_array[-ion_index]  # y-ions count from the end
+    
+    
     ground_truth = paired_peaks
     candidates = [ay_util.mass_b_y_indentification(i, paired_dict=paired_mass_dict) for i in candidates]
-    ay_util.draw_aligned_comparison(ground_truth, candidates, save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
+    ay_util.draw_aligned_comparison(ground_truth, candidates, aa_converter = get_corresponded_aa,save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
     ay_util.draw_sequence_with_middle_points(ay_util.mass_b_y_indentification_with_middle(correct), save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png")
     
     
