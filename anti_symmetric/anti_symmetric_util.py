@@ -411,16 +411,20 @@ def draw_aligned_comparison(ground_truth, other_lists, aa_converter=None, save_p
         
         
 
-def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None, save_path=None, include_y = False):
+
+
+def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None, save_path=None, include_y=True, width_multiplier=1.5):
     """
-    Draws a comparison of mass spec lists with annotations for b-ions in Ground Truth.
-    
     Args:
-        ground_truth: List of tuples (value, label)
-        other_lists: List of lists containing subsets
-        aa_converter: A function that takes a label (e.g., 'b3') and returns the Amino Acid string (e.g., 'A')
-        save_path: Optional path to save the image
+        width_multiplier: Controls horizontal spacing. Lower = tighter. (Try 1.0 - 1.5)
     """
+    if include_y == False:
+        ground_truth_modified = []
+        for i in ground_truth:
+            if i[1][0] != 'y':
+                ground_truth_modified.append(i)
+        ground_truth = ground_truth_modified
+        
     
     # 1. DEFINE FIXED COLORS
     FIXED_COLORS = {
@@ -429,7 +433,11 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
         'spurious': '#e74c3c', # Red/Gray
         'unknown': '#000000'   # Black
     }
-
+    
+    # Font configuration
+    MAIN_FONT_SIZE = 15  # Reduced from 25 to fit tighter spacing
+    LABEL_FONT_SIZE = 14
+    
     # 2. PRE-PROCESSING
     ground_truth.sort(key=lambda x: x[0])
     
@@ -438,8 +446,14 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
     
     # 3. SETUP FIGURE
     total_rows = 1 + len(other_lists)
-    # Increase height slightly to make room for annotations
-    fig, ax = plt.subplots(figsize=(len(ground_truth) * 2.5, total_rows * 1.2))
+    
+    # --- FIX: Calculate a more reasonable width ---
+    # We use the width_multiplier to control space per item.
+    calculated_width = len(ground_truth) * width_multiplier
+    # Optional: Set a minimum width so it doesn't get too squished if data is small
+    fig_width = max(10, calculated_width)
+    
+    fig, ax = plt.subplots(figsize=(fig_width, total_rows * 1.5))
     ax.axis('off')
     
     # 4. DRAWING FUNCTION
@@ -448,7 +462,7 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
         y_pos = row_index
         
         # Draw Row Label
-        ax.text(-1.0, y_pos, label, fontsize=12, fontweight='bold', ha='right', va='center', color='#333')
+        ax.text(-0.5, y_pos, label, fontsize=LABEL_FONT_SIZE, fontweight='bold', ha='right', va='center', color='#333')
         
         for value, raw_cat in data:
             val_key = round(value, 3)
@@ -460,94 +474,79 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
                 simple_cat = ion_simplify(raw_cat)
                 text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
                 
-                # Draw the Mass Value
-                if is_ground_truth and include_y:
-                    ax.text(
-                        x=x_pos,
-                        y=y_pos,
-                        s=str(val_key),
-                        color=text_color,
-                        fontsize=25,
-                        fontweight='bold',
-                        ha='center',
-                        va='center'
-                    )
-                elif ground_truth and include_y == False:
-                    if text_color == FIXED_COLORS['b'] or text_color == FIXED_COLORS['spurious']:
-                        ax.text(
-                        x=x_pos,
-                        y=y_pos,
-                        s=str(val_key),
-                        color=text_color,
-                        fontsize=25,
-                        fontweight='bold',
-                        ha='center',
-                        va='center'
-                    )
-                        
+                # Determine if we should draw the text based on your logic
+                should_draw = False
                 
-                if is_ground_truth == False and text_color == FIXED_COLORS['b']:
+                if is_ground_truth:
+                    if include_y:
+                        should_draw = True
+                    elif simple_cat == 'b' or simple_cat == 'spurious':
+                        should_draw = True
+                else:
+                    # Non-ground truth (subsets)
+                    if simple_cat == 'b':
+                        should_draw = True
+                
+                if should_draw:
                     ax.text(
                         x=x_pos,
                         y=y_pos,
-                        s=str(val_key),
+                        s=f"{val_key:.3f}", # Ensure consistent formatting
                         color=text_color,
-                        fontsize=25,
+                        fontsize=MAIN_FONT_SIZE,
                         fontweight='bold',
                         ha='center',
                         va='center'
                     )
 
-                # --- NEW: ANNOTATION LOGIC ---
-                # If this is Ground Truth AND it's a b-ion AND we have a converter
+                # --- ANNOTATION LOGIC ---
                 if is_ground_truth and simple_cat == 'b' and aa_converter:
                     try:
-                        aa_label = aa_converter(raw_cat) # Convert 'b3' -> 'A'
-                        
-                        # Draw the Amino Acid letter above the number
+                        aa_label = aa_converter(raw_cat)
                         ax.text(
                             x=x_pos,
-                            y=y_pos + 0.35,  # Offset y to place above
+                            y=y_pos + 0.3, # Slightly reduced offset
                             s=aa_label,
-                            color=FIXED_COLORS['b'], # Match the b-ion color
-                            fontsize=25,
+                            color=FIXED_COLORS['b'],
+                            fontsize=MAIN_FONT_SIZE + 2, # Slightly larger for AA
                             fontweight='bold',
                             ha='center',
-                            va='bottom'      # Anchor bottom of text to the offset point
+                            va='bottom'
                         )
                     except Exception as e:
                         print(f"Error converting label {raw_cat}: {e}")
 
     # 5. EXECUTE PLOTTING
-    # Plot Ground Truth (Top Row) - Set is_ground_truth=True
     plot_row(ground_truth, total_rows - 1, "Ground Truth", is_ground_truth=True)
     
-    # Plot Subsets (Iterate downwards)
     for i, subset in enumerate(other_lists):
         row_y = (total_rows - 2) - i
         plot_row(subset, row_y, f"Peptide {i+1}", is_ground_truth=False)
 
     # 6. VISUAL POLISH
+    # Tighten the x-limits to remove empty space on sides
     ax.set_xlim(-1.5, len(ground_truth)) 
-    ax.set_ylim(-0.5, total_rows + 0.2) # Added space at top for annotations
+    ax.set_ylim(-0.5, total_rows + 0.5)
 
     legend_handles = [
         mpatches.Patch(color=FIXED_COLORS['b'], label='b-ion'),
         mpatches.Patch(color=FIXED_COLORS['y'], label='y-ion'),
         mpatches.Patch(color=FIXED_COLORS['spurious'], label='Spurious')
     ]
-    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3, frameon=False, fontsize=20)
+    
+    # Adjusted legend font size
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=3, frameon=False, fontsize=14)
 
+    plt.tight_layout()
+    
     if save_path:
         directory = os.path.dirname(save_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
-        plt.tight_layout()
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
         plt.close(fig)
         print(f"Graph saved successfully to: {save_path}")
     else:
-        plt.tight_layout()
         plt.show()
 
 
