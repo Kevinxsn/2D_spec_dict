@@ -443,6 +443,7 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
     
     # Map rounded values to x-indices for alignment
     val_to_x_map = {round(item[0], 3): i for i, item in enumerate(ground_truth)}
+    x_to_cat_map = {round(item[0], 3): ion_simplify(item[1]) for i, item in enumerate(ground_truth)}
     
     # 3. SETUP FIGURE
     total_rows = 1 + len(other_lists)
@@ -465,13 +466,18 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
         ax.text(-0.5, y_pos, label, fontsize=LABEL_FONT_SIZE, fontweight='bold', ha='right', va='center', color='#333')
         
         for value, raw_cat in data:
+            
             val_key = round(value, 3)
             
             # Only plot if this value aligns with Ground Truth columns
             if val_key in val_to_x_map:
                 x_pos = val_to_x_map[val_key]
                 
+                #raw_cat = x_to_cat_map[val_key]
                 simple_cat = ion_simplify(raw_cat)
+                simple_cat
+                
+                
                 text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
                 
                 # Determine if we should draw the text based on your logic
@@ -492,7 +498,8 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
                         x=x_pos,
                         y=y_pos,
                         s=f"{val_key:.3f}", # Ensure consistent formatting
-                        color=text_color,
+                        #color=text_color,
+                        color = FIXED_COLORS.get(x_to_cat_map[val_key], FIXED_COLORS['unknown']),
                         fontsize=MAIN_FONT_SIZE,
                         fontweight='bold',
                         ha='center',
