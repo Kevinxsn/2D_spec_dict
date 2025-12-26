@@ -95,6 +95,114 @@ def visualize_array_index(data_array, target_index, save_path=None):
     else:
         plt.tight_layout()
         plt.show()
+        
+        
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import os
+
+def visualize_array_range(data_array, target_indices, save_path=None):
+    """
+    Visualizes an array of strings, coloring elements based on their 
+    position relative to a target index or list of consecutive indices.
+    
+    Args:
+        data_array (list of str): The input list of strings.
+        target_indices (int or list of int): The index (or list of indices) to highlight.
+    """
+    
+    # --- 1. Input Normalization & Validation ---
+    
+    # Ensure target_indices is a list, even if a single int is passed
+    if isinstance(target_indices, int):
+        targets = [target_indices]
+    else:
+        targets = sorted(target_indices) # Sort to ensure we get true min/max
+
+    if not targets:
+        print("Error: Target list is empty.")
+        return
+
+    min_target = targets[0]
+    max_target = targets[-1]
+
+    # Check bounds
+    if min_target < 0 or max_target >= len(data_array):
+        print(f"Error: Target range {targets} contains indices out of bounds for array length {len(data_array)}")
+        return
+
+    # --- 2. Setup Plot ---
+    # Adjust figure size based on array length
+    fig_width = max(6, len(data_array) * 1.5)
+    fig, ax = plt.subplots(figsize=(fig_width, 2))
+    
+    # Define colors
+    COLOR_BEFORE = '#87CEEB'  # Sky Blue
+    COLOR_TARGET = '#FFD700'  # Gold
+    COLOR_AFTER  = '#90EE90'  # Light Green
+    
+    # --- 3. Iterate and Draw ---
+    for i, content in enumerate(data_array):
+        # Determine color based on range comparison
+        if i < min_target:
+            face_color = COLOR_BEFORE
+        elif i > max_target:
+            face_color = COLOR_AFTER
+        else:
+            # This covers the range [min_target, max_target]
+            face_color = COLOR_TARGET
+
+        # Draw the rectangle box
+        rect = patches.Rectangle((i, 0), 1, 1, 
+                                 facecolor=face_color, 
+                                 edgecolor='black',
+                                 linewidth=1.5)
+        ax.add_patch(rect)
+        
+        # Add the string text in the center
+        ax.text(i + 0.5, 0.5, str(content), 
+                ha='center', va='center', 
+                fontsize=12, fontweight='bold', color='#333333')
+        
+        # Add index number below
+        ax.text(i + 0.5, -0.2, str(i), 
+                ha='center', va='top', 
+                fontsize=9, color='gray')
+
+    # --- 4. Final Formatting ---
+    ax.set_xlim(0, len(data_array))
+    ax.set_ylim(-0.5, 1.5)
+    ax.axis('off')
+    
+    # Dynamic Title
+    if len(targets) > 1:
+        title_str = f"Target Range: [{min_target} - {max_target}]"
+    else:
+        title_str = f"Target Index: {min_target}"
+        
+    plt.title(f"Array Visualization ({title_str})", pad=20)
+    
+    # Legend
+    legend_elements = [
+        patches.Patch(facecolor=COLOR_BEFORE, edgecolor='black', label='Before Range'),
+        patches.Patch(facecolor=COLOR_TARGET, edgecolor='black', label='Target Range'),
+        patches.Patch(facecolor=COLOR_AFTER,  edgecolor='black', label='After Range')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1, 1.3))
+
+    # Output
+    if save_path:
+        directory = os.path.dirname(save_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.tight_layout()
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        plt.close(fig)
+        print(f"Graph saved successfully to: {save_path}")
+    else:
+        plt.tight_layout()
+        plt.show()
+
 
 
 def find_conserved_numbers(list_of_arrays, all_numbers):
@@ -243,9 +351,9 @@ def visualize_sets(universal_set, set_one, set_two, save_path=None):
 def ion_simplify(the_input):
     if the_input is None:
         return 'spurious'
-    elif the_input[0] == 'y':
+    elif the_input[0] == 'y' and ' - ' not in the_input:
         return 'y'
-    elif the_input[0] == 'b'and len(the_input) > 1 and the_input[1] != 'i':
+    elif the_input[0] == 'b'and len(the_input) > 1 and the_input[1] != 'i' and ' - ' not in the_input:
         return 'b'
     elif the_input == 'b':
         return 'b'

@@ -89,8 +89,11 @@ AA_MASSES = {
     'K': 128.094963, 'E': 129.042593, 'M': 131.040485, 'H': 137.058912,
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
     #'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056, 'E(nitro)': 129.042593 + 44.98508
-    'R(ME2)': 156.101111 + 28.03130
-    #'E(nitro)': 129.042593 + 44.98508
+    #'R(ME2)': 156.101111 + 28.03130
+    'E(nitro)': 129.042593 + 44.98508
+    #'R(ME)': 156.101111 + 14.01565
+    #'K(Ac)': 128.094963 + 42.01056
+    #'A(p)': 71.037114 + 79.96633
 }
 DOUBLE_AA_MASSES = {}
 for aa1, aa2 in combinations_with_replacement(AA_MASSES.keys(), 2):
@@ -670,7 +673,8 @@ def build_mass_list_with_ion(
     *,
     base_dir: str = None,
     head_n: int = 50,
-    conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3')
+    conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3'),
+    true_mass = False
     ) -> list:
     """
     Given a dataset name like 'ME4_2+', read its annotated CSV, compute classifications,
@@ -717,6 +721,8 @@ def build_mass_list_with_ion(
 
     # Domain processing + classification
     results = data_parse.process_ion_dataframe(df, pep)
+
+    
     results["classification"] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
 
     # Normalize loss columns
@@ -764,15 +770,55 @@ def build_mass_list_with_ion(
 
         #return mass1_charge, mass2_charge
         return mass1_charge - proton, mass2_charge - proton
+    
+    def true_mass_mul_charge(row):
+        mass1_charge = None
+        mass2_charge = None
+        if row['charge1'][0] == '1':
+            mass1_charge = row['mass1']
+        elif row['charge1'][0] == '2':
+            mass1_charge = row['mass1'] * 2 - proton
+
+        if row['charge2'][0] == '1':
+            mass2_charge = row['mass2']
+        elif row['charge2'][0] == '2':
+            mass2_charge = row['mass2'] * 2 - proton
+
+        #return mass1_charge, mass2_charge
+        return mass1_charge - proton, mass2_charge - proton
         
-            
-    df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(mass_mul_charge, axis=1, result_type='expand')
+    if true_mass ==False:
+        df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(mass_mul_charge, axis=1, result_type='expand')
+    else:
+        df_parent[['mass1_charge', 'mass2_charge']] = df_parent.apply(true_mass_mul_charge, axis=1, result_type='expand')
     #print(df_parent[['ion1', 'ion2', 'mass1_charge', 'mass2_charge']])
     mass_list = list(set(df_parent["mass1_charge"].tolist() + df_parent["mass2_charge"].tolist()))
     mass_list.sort()
-    print(df_parent[['mass1_charge', 'mass2_charge', 'ion1', 'ion2']])
-    paried_list = list(zip(df_parent['mass1_charge'], df_parent['ion1'])) \
-       + list(zip(df_parent['mass2_charge'], df_parent['ion2']))
+    
+    df_parent["ion-loss1"] = (
+        df_parent["ion1"].fillna("") +
+        np.where(
+            df_parent["loss1"].notna() & (df_parent["loss1"] != ""),
+            " - " + df_parent["loss1"],
+            ""
+        )
+    )
+
+    df_parent["ion-loss2"] = (
+        df_parent["ion2"].fillna("") +
+        np.where(
+            df_parent["loss2"].notna() & (df_parent["loss2"] != ""),
+            " - " + df_parent["loss2"],
+            ""
+        )
+    )
+    
+    
+    
+    #print(df_parent[['mass1_charge', 'mass2_charge', 'ion1', 'ion2']])
+    print(df_parent[['mass1_charge', 'mass2_charge', 'ion-loss1', 'ion-loss2']])
+    paried_list = list(zip(df_parent['mass1_charge'], df_parent['ion-loss1'])) \
+       + list(zip(df_parent['mass2_charge'], df_parent['ion-loss2']))
     
     paired_mass = list(zip(df_parent['mass1_charge'], df_parent['mass2_charge']))
     paired_mass_dict = {}
