@@ -454,4 +454,8 @@ peptide_table = {
         "7732": "KFIFRTAGTAGR",
         "6727": "DQARVAPSSSDPKSKFF",
         "7302": "HGMTVVIRKKF",
-        "3510": "GSHQISLDNPDYQQDFFPK"}
+        "3510": "GSHQISLDNPDYQQDFFPK",
+        "test1":"YLEFISDAIIHVLHSK",
+        "test2":"HGTVVLTALGGILK",
+        "test3":"ADIAGHGQEVLIR"
+        }

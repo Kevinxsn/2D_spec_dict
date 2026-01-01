@@ -453,6 +453,7 @@ def draw_aligned_comparison(ground_truth, other_lists, aa_converter=None, save_p
                 simple_cat = ion_simplify(raw_cat)
                 text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
                 
+                
                 # Draw the Mass Value
                 ax.text(
                     x=x_pos,
@@ -575,6 +576,8 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
         
         for value, raw_cat in data:
             
+            
+            
             val_key = round(value, 3)
             
             # Only plot if this value aligns with Ground Truth columns
@@ -585,7 +588,7 @@ def draw_aligned_comparison_b_only(ground_truth, other_lists, aa_converter=None,
                 simple_cat = ion_simplify(raw_cat)
                 simple_cat
                 
-                
+
                 text_color = FIXED_COLORS.get(simple_cat, FIXED_COLORS['unknown'])
                 
                 # Determine if we should draw the text based on your logic

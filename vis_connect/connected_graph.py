@@ -90,7 +90,7 @@ AA_MASSES = {
     'F': 147.068414, 'R': 156.101111, 'Y': 163.063329, 'W': 186.079313,
     #'Me': 14.01565, 'Me2':28.03130, 'nitro': 44.98508, "Ac": 42.01056, 'E(nitro)': 129.042593 + 44.98508
     #'R(ME2)': 156.101111 + 28.03130
-    'E(nitro)': 129.042593 + 44.98508
+    #'E(nitro)': 129.042593 + 44.98508
     #'R(ME)': 156.101111 + 14.01565
     #'K(Ac)': 128.094963 + 42.01056
     #'A(p)': 71.037114 + 79.96633
@@ -742,7 +742,7 @@ def build_mass_list_with_ion(
     def classify_conserve_line(row):
         m = row["chosen_sum"]
         for label, target in conserve_line_mass_dict.items():
-            if (target - 1) < m < (target + 1):
+            if (target - 1.1) < m < (target + 1.1):
                 return label
         return None
 
@@ -798,8 +798,8 @@ def build_mass_list_with_ion(
     df_parent["ion-loss1"] = (
         df_parent["ion1"].fillna("") +
         np.where(
-            df_parent["loss1"].notna() & (df_parent["loss1"] != ""),
-            " - " + df_parent["loss1"],
+            df_parent["loss1"].notna() & (df_parent["loss1"].astype(str) != ""),
+            " - " + df_parent["loss1"].astype(str),
             ""
         )
     )
@@ -807,8 +807,8 @@ def build_mass_list_with_ion(
     df_parent["ion-loss2"] = (
         df_parent["ion2"].fillna("") +
         np.where(
-            df_parent["loss2"].notna() & (df_parent["loss2"] != ""),
-            " - " + df_parent["loss2"],
+            df_parent["loss2"].notna() & (df_parent["loss2"].astype(str) != ""),
+            " - " + df_parent["loss2"].astype(str),
             ""
         )
     )

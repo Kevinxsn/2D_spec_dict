@@ -584,7 +584,7 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 if __name__ == "__main__":
-    data = 'ME4_3+'
+    data = 'test2_2+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -595,7 +595,8 @@ if __name__ == "__main__":
     csv_data = file_path
     df = pd.read_csv(csv_data)
     df = df[df['Index'].notna()]
-    results = data_parse.process_ion_dataframe(df.head(50), pep)
+    #results = data_parse.process_ion_dataframe(df.head(50), pep)
+    results = data_parse.process_ion_dataframe(df, pep)
     results['classification'] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
     the_list = []
     the_y_list = []
@@ -608,16 +609,20 @@ if __name__ == "__main__":
     LETTER_ORDER = {ch: i for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz")}
     rows = ['Parent','(NH3)','(H2O)', '(NH3)-(H2O)','(H2O)-(NH3)', 'a', '2(H2O)', '2(NH3)', '(H3PO4)']
     conserve_line_mass_dict = {'Parent': pep.pep_mass, 'a': pep.pep_mass - 28.0106}
+    
+    
 
     def classify_conserve_line(row):
         the_mass = row['chosen_sum']
         for i in conserve_line_mass_dict:
-            if the_mass < conserve_line_mass_dict[i] + 1 and the_mass > conserve_line_mass_dict[i] - 1:
+            if the_mass < conserve_line_mass_dict[i] + 1.1 and the_mass > conserve_line_mass_dict[i] - 1.1:
                 return i
         else:
             return None
 
     df['conserve_line'] = df.apply(classify_conserve_line, axis = 1)
+    print(df[['conserve_line', 'chosen_sum']].head(30))
+    
     my_peaks, sequence, pep, paired_peaks, paired_mass_dict = connected_graph.build_mass_list_with_ion(data)
     
     
@@ -674,8 +679,8 @@ if __name__ == "__main__":
     
     real_spectrum = lower_half_modified
     print(lower_half_modified)
-    noise = [546.2073633159699, 625.3798668255599]
-    #noise = []
+    #noise = [823.4791046964, 637.331824, 552.33833931597, 607.3052339999999]
+    noise = []
     full_spec = sorted(real_spectrum + noise)
     
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
@@ -686,12 +691,13 @@ if __name__ == "__main__":
     #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
     
     
-    #candidates = [list(p) for p in the_max_length_paths]
+    correct = [(0.0, 18.01056), (194.080344, 18.01056), (194.080344, 259.189554), (295.128024, 259.189554), (295.128024, 372.27361399999995), (394.196434, 372.27361399999995), (394.196434, 429.29507399999994), (394.196434, 486.31653399999993), (493.264844, 486.31653399999993), (493.264844, 599.400594), (606.348904, 599.400594), (606.348904, 670.4377039999999), (707.396584, 670.4377039999999)]
+    candidates = [list(p) for p in the_max_length_paths]
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
 
-    correct = [(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (344.133164, 570.385284), (344.133164, 684.4281879999999), (711.2863639999999, 684.4281879999999)]
-    candidates = [[(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (546.2073633159699, 499.348148), (546.2073633159699, 570.3852579999999), (546.2073633159699, 684.4281879999999)]]
+    #correct = [(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (344.133164, 570.385284), (344.133164, 684.4281879999999), (711.2863639999999, 684.4281879999999)]
+    #candidates = [[(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (546.2073633159699, 499.348148), (546.2073633159699, 570.3852579999999), (546.2073633159699, 684.4281879999999)]]
 
     visualize_all_paths(full_spec, spurious_masses=noise, 
                          candidate_paths=candidates, 
@@ -702,7 +708,7 @@ if __name__ == "__main__":
                          save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png'
                          )
     
-    ay_util.visualize_array_range(pep.AA_array, [6], save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
+    ay_util.visualize_array_range(pep.AA_array, [6,7], save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
     print(lower_half_modified)
     
     #old conserved number code
@@ -772,6 +778,7 @@ if __name__ == "__main__":
     
     ground_truth = paired_peaks
     
+    print(paired_mass_dict)
 
 
     candidates = [ay_util.mass_b_y_indentification(i, paired_dict=paired_mass_dict) for i in candidates]
