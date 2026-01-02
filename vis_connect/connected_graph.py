@@ -672,7 +672,7 @@ def build_mass_list_with_ion(
     data: str,
     *,
     base_dir: str = None,
-    head_n: int = 50,
+    head_n: int = 56,
     conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3'),
     true_mass = False
     ) -> list:
@@ -798,7 +798,7 @@ def build_mass_list_with_ion(
     df_parent["ion-loss1"] = (
         df_parent["ion1"].fillna("") +
         np.where(
-            df_parent["loss1"].notna() & (df_parent["loss1"].astype(str) != ""),
+            df_parent["loss1"].notna() & (df_parent["loss1"] != ""),
             " - " + df_parent["loss1"].astype(str),
             ""
         )
@@ -807,7 +807,7 @@ def build_mass_list_with_ion(
     df_parent["ion-loss2"] = (
         df_parent["ion2"].fillna("") +
         np.where(
-            df_parent["loss2"].notna() & (df_parent["loss2"].astype(str) != ""),
+            df_parent["loss2"].notna() & (df_parent["loss2"] != ""),
             " - " + df_parent["loss2"].astype(str),
             ""
         )

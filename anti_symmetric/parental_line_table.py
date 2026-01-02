@@ -26,7 +26,7 @@ import data_parse
 import neutral_loss_mass
 
 
-data = 'test3_2+'
+data = 'test1_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -41,7 +41,11 @@ the_length = len(pep.AA_array)
 csv_data = file_path
 df = pd.read_csv(csv_data)
 df = df[df['Index'].notna()]
-results = data_parse.process_ion_dataframe(df.head(50), pep)
+
+#results = data_parse.process_ion_dataframe(df.head(50), pep)
+
+results = data_parse.process_ion_dataframe(df.head(56), pep)
+
 results['classification'] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
 the_list = []
 the_y_list = []
@@ -223,9 +227,9 @@ for index, each_row in df.iterrows():
                 unexplained_count[i] += 1 
         
         
-    if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns) and rounded_sum < 1:
+    if (each_row['conserve_line'] in reuslt_df.index) and (the_column in reuslt_df.columns) and rounded_sum < 0.5:
         
-        print(each_row['mass_difference1'], each_row['mass_difference2'],rounded_sum, )
+        print(each_row['mass_difference1'], each_row['mass_difference2'],rounded_sum, each_row['loss_first_m'], each_row['loss_second_m'], index)
         
         #print(each_row['conserve_line'])
         reuslt_df.at[each_row['conserve_line'], the_column] = f"({each_row['loss_first_m']},{each_row['loss_second_m']})" + ' \n ' +\

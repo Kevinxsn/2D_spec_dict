@@ -584,7 +584,7 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 if __name__ == "__main__":
-    data = 'test2_2+'
+    data = 'test1_3+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -596,7 +596,7 @@ if __name__ == "__main__":
     df = pd.read_csv(csv_data)
     df = df[df['Index'].notna()]
     #results = data_parse.process_ion_dataframe(df.head(50), pep)
-    results = data_parse.process_ion_dataframe(df, pep)
+    results = data_parse.process_ion_dataframe(df.head(62), pep)
     results['classification'] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
     the_list = []
     the_y_list = []
@@ -679,7 +679,7 @@ if __name__ == "__main__":
     
     real_spectrum = lower_half_modified
     print(lower_half_modified)
-    #noise = [823.4791046964, 637.331824, 552.33833931597, 607.3052339999999]
+    #noise = [637.331824, 565.3256053283399]
     noise = []
     full_spec = sorted(real_spectrum + noise)
     
@@ -691,7 +691,7 @@ if __name__ == "__main__":
     #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
     
     
-    correct = [(0.0, 18.01056), (194.080344, 18.01056), (194.080344, 259.189554), (295.128024, 259.189554), (295.128024, 372.27361399999995), (394.196434, 372.27361399999995), (394.196434, 429.29507399999994), (394.196434, 486.31653399999993), (493.264844, 486.31653399999993), (493.264844, 599.400594), (606.348904, 599.400594), (606.348904, 670.4377039999999), (707.396584, 670.4377039999999)]
+    correct = [(0.0, 18.01056), (0.0, 233.13752399999998), (405.189954, 233.13752399999998), (552.2583639999999, 233.13752399999998), (552.2583639999999, 582.348904), (665.3424239999999, 582.348904), (752.3744539999999, 582.348904), (867.4013939999999, 582.348904)]
     candidates = [list(p) for p in the_max_length_paths]
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
