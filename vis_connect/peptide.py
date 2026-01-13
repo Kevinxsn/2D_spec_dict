@@ -457,5 +457,7 @@ peptide_table = {
         "3510": "GSHQISLDNPDYQQDFFPK",
         "test1":"YLEFISDAIIHVLHSK",
         "test2":"HGTVVLTALGGILK",
-        "test3":"ADIAGHGQEVLIR"
+        "test3":"ADIAGHGQEVLIR",
+        "test4":"HGTVVLTALGGILK",
+        "test5":"VEADIAGHGQEVLIR"
         }

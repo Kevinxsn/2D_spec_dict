@@ -584,7 +584,7 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 if __name__ == "__main__":
-    data = 'test1_3+'
+    data = 'test4_3+'
     csv_data = f"{data}.csv"
     file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
     file_path = os.path.abspath(file_path) 
@@ -637,12 +637,12 @@ if __name__ == "__main__":
     #print("Sorted Array:", sorted_array)
     #print(df[['chosen_sum', 'ranking', 'classification', 'conserve_line', 'y_mz', 'b_mz']])
     
-    mid_point = len(sorted_array) // 2 + 1
+    mid_point = len(sorted_array) // 2 + 2
     lower_half = sorted_array[:mid_point]
     upper_half = sorted_array[mid_point:]
     lower_half_modified = lower_half + [18.01056]
     lower_half_modified.sort()
-    
+
     print('lower half:', lower_half_modified)
     
     allowed_mass_list = list(AA_MASSES.values()) + list(DOUBLE_AA_MASSES.values()) + list(TRIPLE_AA_MASSES.values()) #+ list(QUADRA_AA_MASSES.values())
@@ -652,7 +652,7 @@ if __name__ == "__main__":
     paths = find_peptide_paths(
         lower_half_modified, 
         allowed_masses=allowed_mass_list, 
-        tolerance=0.01,
+        tolerance=0.02,
         start_point=(0.0, 18.01056)
     )
     
@@ -679,8 +679,8 @@ if __name__ == "__main__":
     
     real_spectrum = lower_half_modified
     print(lower_half_modified)
-    #noise = [637.331824, 565.3256053283399]
-    noise = []
+    noise = [246.161, 247.107, 353.240, 392.122]
+    #noise = []
     full_spec = sorted(real_spectrum + noise)
     
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
@@ -691,8 +691,10 @@ if __name__ == "__main__":
     #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
     
     
-    correct = [(0.0, 18.01056), (0.0, 233.13752399999998), (405.189954, 233.13752399999998), (552.2583639999999, 233.13752399999998), (552.2583639999999, 582.348904), (665.3424239999999, 582.348904), (752.3744539999999, 582.348904), (867.4013939999999, 582.348904)]
-    candidates = [list(p) for p in the_max_length_paths]
+    correct = [(0.0, 18.01056), (0.0, 259.189554), (0.0, 372.27361399999995), (394.196434, 372.27361399999995), (394.196434, 429.29507399999994), (394.196434, 486.31653399999993), (493.264844, 486.31653399999993), (493.264844, 599.4005679999999), (606.348904, 599.4005679999999)]
+    #candidates = [list(p) for p in the_max_length_paths]
+    candidates = [correct]
+    
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
     #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
 

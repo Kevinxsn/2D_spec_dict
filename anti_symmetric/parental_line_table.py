@@ -26,7 +26,7 @@ import data_parse
 import neutral_loss_mass
 
 
-data = 'test1_3+'
+data = 'test4_3+'
 csv_data = f"{data}.csv"
 file_path = os.path.join(
     os.path.dirname(__file__),
@@ -44,7 +44,7 @@ df = df[df['Index'].notna()]
 
 #results = data_parse.process_ion_dataframe(df.head(50), pep)
 
-results = data_parse.process_ion_dataframe(df.head(56), pep)
+results = data_parse.process_ion_dataframe(df, pep)
 
 results['classification'] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
 the_list = []
@@ -144,6 +144,7 @@ def create_mass_conserve_line(row):
     if pd.isna(loss2):
         loss2 = ''
         
+    combined_loss = ''
         
     #print((type(ion1) == str) and (ion1[0] == 'a' and ion1[:2] != 'ai'))
     #print((type(ion2) == str) and (ion2[0] == 'a' and ion2[:2] != 'ai')and (loss1 == '' and loss2 == ''))

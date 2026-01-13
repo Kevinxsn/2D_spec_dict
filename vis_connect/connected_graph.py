@@ -672,7 +672,7 @@ def build_mass_list_with_ion(
     data: str,
     *,
     base_dir: str = None,
-    head_n: int = 56,
+    head_n: int = 200,
     conserve_rows = ('Parent','(NH3)','(H2O)','(NH3)-(H2O)','(H2O)-(NH3)','a','2(H2O)','2(NH3)', 'H4PO3'),
     true_mass = False
     ) -> list:
