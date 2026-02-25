@@ -6,6 +6,8 @@ from pathlib import Path
 import matplotlib.patches as patches
 import anti_symmetric_util as ay_util
 import img2pdf
+import bisect
+import sys
 
 # Directory where *this script* is located
 current_dir = Path(__file__).resolve().parent
@@ -195,6 +197,12 @@ def find_peptide_paths(spectrum, allowed_masses=None, tolerance=0.02, start_poin
         dfs([start_node])
     
     return all_paths
+
+
+
+
+
+
 
 def format_path_string(path, with_aa= False):
     """
@@ -584,220 +592,46 @@ def visualize_all_paths(spectrum, spurious_masses=None,
 
 
 if __name__ == "__main__":
-    data = 'test5_3+'
-    csv_data = f"{data}.csv"
-    file_path = f"/Users/kevinmbp/Desktop/2D_spec_dict/data/Top_Correlations_At_Full_Num_Scans_PCov/annotated/{csv_data}"
-    file_path = os.path.abspath(file_path) 
-    sequence = util.name_ouput(csv_data)
-    pep = peptide.Pep(sequence)
-    print(pep.AA_array)
-    the_length = len(pep.AA_array)
-    csv_data = file_path
-    df = pd.read_csv(csv_data)
-    df = df[df['Index'].notna()]
-    #results = data_parse.process_ion_dataframe(df.head(50), pep)
-    results = data_parse.process_ion_dataframe(df.head(62), pep)
-    results['classification'] = results.apply(data_parse.data_classify, args=(pep,), axis=1)
-    the_list = []
-    the_y_list = []
-
-    results['loss1'] = results['loss1'].replace({None: np.nan})
-    results['loss2'] = results['loss2'].replace({None: np.nan})
-    df = results
-    df['ranking'] = df['Index']
+    pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
+    #pep_seq = 'HADGSFSDEMNTILDNL'
+    charge = 4
+    pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
+    breaks = [1, 2, 4, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+    #breaks = [2, 4, 7, 9, 10, 11, 12, 13, 14, 15]
+    my_peaks = [pep.ion_mass(f'b{i}') for i in breaks] + [pep.ion_mass(f'y{len(pep_seq) - i}') for i in breaks]
+    my_peaks = [i - 1.00725 for i in my_peaks]
     
-    LETTER_ORDER = {ch: i for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz")}
-    rows = ['Parent','(NH3)','(H2O)', '(NH3)-(H2O)','(H2O)-(NH3)', 'a', '2(H2O)', '2(NH3)', '(H3PO4)']
-    conserve_line_mass_dict = {'Parent': pep.pep_mass, 'a': pep.pep_mass - 28.0106}
-    
-    
-
-    def classify_conserve_line(row):
-        the_mass = row['chosen_sum']
-        for i in conserve_line_mass_dict:
-            if the_mass < conserve_line_mass_dict[i] + 1.1 and the_mass > conserve_line_mass_dict[i] - 1.1:
-                return i
-        else:
-            return None
-
-    df['conserve_line'] = df.apply(classify_conserve_line, axis = 1)
-    print(df[['conserve_line', 'chosen_sum']].head(30))
-    
-    my_peaks, sequence, pep, paired_peaks, paired_mass_dict = connected_graph.build_mass_list_with_ion(data)
-    
-    
-        #print('b_ion_list:', b_ion_list)
-
-    #mass - 18 is also a mass of b ion
-    paired_peaks = paired_peaks + [(pep.seq_mass, f'b{len(pep.AA_array)}')]
-    b_ion_list = [i[1] for i in paired_peaks if i[1].startswith('b') and i[1][1] != 'i' and len(i[1]) < 4]
-
-    
-    sorted_array = [0.0] + my_peaks + [pep.seq_mass - 18.01056] + [pep.seq_mass]
-    #print("Sorted Array:", sorted_array)
-    #print(df[['chosen_sum', 'ranking', 'classification', 'conserve_line', 'y_mz', 'b_mz']])
-    
-    mid_point = len(sorted_array) // 2 + 2
-    lower_half = sorted_array[:mid_point]
-    upper_half = sorted_array[mid_point:]
-    lower_half_modified = lower_half + [18.01056]
-    lower_half_modified.sort()
-
-    print('lower half:', lower_half_modified)
-    
-    allowed_mass_list = list(AA_MASSES.values()) + list(DOUBLE_AA_MASSES.values()) + list(TRIPLE_AA_MASSES.values()) #+ list(QUADRA_AA_MASSES.values())
+    allowed_mass_list = list(AA_MASSES.values()) + list(DOUBLE_AA_MASSES.values()) #+ list(TRIPLE_AA_MASSES.values()) #+ list(QUADRA_AA_MASSES.values())
     merge_close_values = connected_graph.merge_close_values
     allowed_mass_list = merge_close_values(allowed_mass_list, 0.01)
+    
+    sorted_array = [0.0] + my_peaks + [pep.pep_mass - 18.01056] + [pep.pep_mass]    
+    sorted_array.sort()
+    
+    mid_point = len(sorted_array) // 2 + 1
+    lower_half = sorted_array[:mid_point]
+    lower_half_modified = lower_half + [18.01056]
+    lower_half_modified.sort()
+        
+    print(lower_half_modified)
+    print(allowed_mass_list)
+    
     
     paths = find_peptide_paths(
         lower_half_modified, 
         allowed_masses=allowed_mass_list, 
-        tolerance=0.02,
+        tolerance=0.01,
         start_point=(0.0, 18.01056)
     )
-    
-    #for p in paths:
-    #    print(format_path_string_no_aa(p, with_aa=True))
     
     the_max = max([len(p) for p in paths])
     the_max_length_num = sum([1 for p in paths if len(p) == the_max])
     the_max_length_paths = set([tuple(p) for p in paths if len(p) == the_max])
-
     the_max_length_pep = set([format_path_string_no_aa(p) for p in paths if len(p) == the_max])
     
     for p in the_max_length_paths:
         print(p)
-
-
     print(len(paths), "paths found.", "Max length:", the_max, 'There are', len(the_max_length_pep), "paths of max length.")
-    
-    
     print("Max length paths:")
     the_max_length_pep = set([path_to_seq_multiple_edges(p, pep.seq_mass + 18.01056) for p in paths if len(p) == the_max])
-    
     print(format_path_to_seq(the_max_length_pep))
-    
-    real_spectrum = lower_half_modified
-    print(lower_half_modified)
-    noise = [246.161, 247.107, 353.240, 392.122]
-    #noise = []
-    full_spec = sorted(real_spectrum + noise)
-    
-    amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
-    
-
-    #correct = [(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]
-    #correct = [(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (300.122204, 566.285244), (613.2971779999999, 566.285244), (613.2971779999999, 679.369304)]
-    #candidates = [[(0.0, 18.01056), (0.0, 332.184804), (0.0, 419.216834), (484.254614, 419.216834), (484.254614, 566.285244), (613.297204, 566.285244), (613.297204, 679.369304), (742.339794, 679.369304)]]
-    
-    
-    correct = [(0.0, 18.01056), (0.0, 259.189554), (0.0, 372.27361399999995), (394.196434, 372.27361399999995), (394.196434, 429.29507399999994), (394.196434, 486.31653399999993), (493.264844, 486.31653399999993), (493.264844, 599.4005679999999), (606.348904, 599.4005679999999)]
-    #candidates = [list(p) for p in the_max_length_paths]
-    candidates = [correct]
-    
-    #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
-    #candidates = [correct,[(0.0, 18.01056), (243.100744, 18.01056), (300.122204, 18.01056), (300.122204, 332.184804), (557.2572246963999, 332.184804), (557.2572246963999, 566.285244), (557.2572246963999, 679.369304)]]
-
-    #correct = [(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (344.133164, 570.385284), (344.133164, 684.4281879999999), (711.2863639999999, 684.4281879999999)]
-    #candidates = [[(0.0, 18.01056), (0.0, 174.111644), (344.133164, 174.111644), (344.133164, 386.264114), (344.133164, 499.348148), (546.2073633159699, 499.348148), (546.2073633159699, 570.3852579999999), (546.2073633159699, 684.4281879999999)]]
-
-    visualize_all_paths(full_spec, spurious_masses=noise, 
-                         candidate_paths=candidates, 
-                         correct_path=correct, 
-                         aa_map=amino_acid_masses_switch,
-                         title = sequence,
-                         pep_mass=pep.seq_mass + 18.01056,
-                         save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png'
-                         )
-    
-    ay_util.visualize_array_range(pep.AA_array, [6,7], save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png')
-    print(lower_half_modified)
-    
-    #old conserved number code
-    #universal_set = lower_half_modified
-    #print(candidates)
-    #cons, non_cons = ay_util.find_conserved_numbers(candidates, universal_set)
-    #print(cons, non_cons)
-    #ay_util.visualize_sets(lower_half_modified, cons, non_cons, save_path=f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_conserved_numbers.png')
-    
-    def get_corresponded_aa(the_ion_name, the_peptide = pep):
-        # Given a peptide sequence and an ion name (e.g., 'b3', 'y5'), return the corresponding amino acid.
-        
-        if the_ion_name is None or len(the_ion_name) < 2:
-            return None
-        ion_type = the_ion_name[0]  # 'b' or 'y'
-        ion_index = int(the_ion_name[1:])
-        if ion_type == 'b':
-            if 1 <= ion_index <= len(the_peptide.AA_array):
-                return the_peptide.AA_array[ion_index - 1]  # b-ions are 1-indexed
-        elif ion_type == 'y':
-            if 1 <= ion_index <= len(the_peptide.AA_array):
-                return the_peptide.AA_array[-ion_index]  # y-ions count from the end
-    
-    
-    
-    def get_ion_segment(target_ion, ion_list = b_ion_list, peptide = pep.AA_array):
-        #Returns the amino acid sequence segment between the previous ion 
-        #in the list and the target ion.
-        peptide = [str(i) for i in peptide]
-        # 1. Extract the numeric positions from the ion strings (e.g., 'b2' -> 2)
-        # We use a set to remove duplicates, then sort them to find order
-        # Format: dictionary mapping {position: 'ion_name'}
-        ion_map = {int(ion[1:]): ion for ion in ion_list}
-        
-        # Get the sorted list of positions (e.g., [2, 4])
-        sorted_positions = sorted(ion_map.keys())
-        
-        # 2. Parse the target position
-        target_pos = int(target_ion[1:])
-        
-        # Check if target is actually in the list provided
-        if target_pos not in sorted_positions:
-            return f"Error: {target_ion} is not in the ion list."
-
-        # 3. Find the index of the target in our sorted list
-        current_index_in_list = sorted_positions.index(target_pos)
-
-        # 4. Determine Start and End indices for slicing the peptide
-        # The end of the slice is always the target ion's position
-        end_slice = target_pos
-        
-        if current_index_in_list == 0:
-            # If it's the first ion (e.g., b2), start from the beginning (0)
-            start_slice = 0
-        else:
-            # If there is a previous ion (e.g., b2 comes before b4), 
-            # start where the previous ion ended.
-            previous_pos = sorted_positions[current_index_in_list - 1]
-            start_slice = previous_pos
-
-        # 5. Extract the segment from the peptide list
-        # Python slicing is [start:end], where start is inclusive and end is exclusive
-        segment_list = peptide[start_slice : end_slice]
-        
-        return "".join(segment_list)
-    
-    
-    ground_truth = paired_peaks
-    
-    print(paired_mass_dict)
-
-
-    candidates = [ay_util.mass_b_y_indentification(i, paired_dict=paired_mass_dict) for i in candidates]
-    #ay_util.draw_aligned_comparison(ground_truth, candidates, aa_converter = get_ion_segment,save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
-    
-    ay_util.draw_aligned_comparison_b_only(ground_truth, candidates, aa_converter = get_ion_segment,save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png")
-
-    ay_util.draw_sequence_with_middle_points(ay_util.mass_b_y_indentification_with_middle(correct), save_path=f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png")
-    
-    
-    images = [f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak.png",
-              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}.png', 
-              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_parent_table.png",         
-              f'/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_array.png',
-              f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/graph/{data}_colored_peak_with_middle.png"]
-
-    # Create the PDF
-    with open(f"/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/{data}.pdf", "wb") as f:
-        f.write(img2pdf.convert(images))
-    

@@ -59,7 +59,9 @@ class AA:
     element_masses = {
         'proton':1.00725,
         'H2O':18.01056,
-        'carbonyl':28.0106
+        'carbonyl':28.0106,
+        'NH3':17.02655,
+        'NH2':17.02655 - 1.00725
     }
     
     def __init__(self, acid_name, attach=None):
@@ -90,6 +92,7 @@ class AA:
 class Pep:
     
     def __init__(self, raw_seq, end_h20 = True):
+        self.end_h20 = end_h20
         self.seq = Pep.extract_sequence(raw_seq) # the sequence without modification
         self.rev_seq = self.seq[::-1]
         self.seq_mod, self.ion, self.charge = Pep.parse_peptide(raw_seq) ## the sequence with modification
@@ -102,12 +105,13 @@ class Pep:
         self.pep_mass = 0
         for aa in self.AA_array:
             self.pep_mass += aa.get_mass()
-        if end_h20:
+        if end_h20 == True:
             self.pep_mass += AA.element_masses['H2O']
         else:
             self.pep_mass = self.pep_mass + AA.element_masses[end_h20]
         h_num = int(self.charge.replace('+','').replace('H',''))
         self.pep_mass += h_num * AA.element_masses['proton']
+        self.seq_mass = self.pep_mass - h_num * AA.element_masses['proton'] - AA.element_masses['H2O']
         
         
     def extract_sequence(peptide: str) -> str:
@@ -289,12 +293,15 @@ class Pep:
         return numbers
     
     
-    def ion_mass(self, ion_name, defult_H2O = True):
+    def ion_mass(self, ion_name, defult_H2O = None):
         if ion_name == '???' or ion_name == None:
             return None
         
         if len(ion_name.split('/')) > 1:
             ion_name = ion_name.split('/')[0]
+        
+        if defult_H2O is None:
+            defult_H2O = self.end_h20
             
         
         if ion_name[0] == 'y' and ion_name[:2] != 'yi':
@@ -304,10 +311,10 @@ class Pep:
                 mass += self.rev_AA_array[i].get_mass()
             #return (mass + AA.element_masses['H2O'] + ion_charge * AA.element_masses['proton']) / ion_charge
             #return mass
-            if defult_H2O:
+            if defult_H2O is True:
                 return mass + AA.element_masses['H2O'] + AA.element_masses['proton']
             else:
-                return mass + AA.element_masses['proton']
+                return mass + AA.element_masses['proton'] + AA.element_masses[defult_H2O]
         
         elif ion_name[0] =='b' and ion_name[:2] != 'bi':
             mass = 0

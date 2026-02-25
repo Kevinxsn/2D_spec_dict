@@ -646,6 +646,27 @@ def report_data(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_ori
         return merged[['each_original_data', 'm/z A', 'm/z B', 'Interpretation A', 'Interpretation B', 'CorrelationScore', 'NormalisedScore', 'MassDeviation']]
     
     return df_result
+
+def report_data_with_ranking(df_pairs, input_sequence, charge, tolerance_input=0.8, merge_original = False):
+    
+    
+    ## df_pairs: dataframe with m/z A, m/z B column
+    ## input_sequence: 'GGNFSGR(Me)GGFGGSR'
+    ## charge: charge of the peptide
+    
+    peptide_input = adjust_peptide(input_sequence)
+    peptide_list = list(peptide_input[0])
+    peptide = []
+    for item in peptide_list:
+        peptide.append(define[item])
+    sequence_pairs = all_pairs(peptide_input[0], peptide_input[1], charge, peptide)
+    df_result = report_from_dataframe(df_pairs, sequence_pairs, tolerance=tolerance_input)
+    
+    if merge_original:
+        merged = pd.merge(df_pairs, df_result, on=['m/z A', 'm/z B'], how='outer')
+        return merged[['each_original_data', 'm/z A', 'm/z B', 'Interpretation A', 'Interpretation B', 'CorrelationScore', 'NormalisedScore', 'MassDeviation', 'Ranking']]
+    
+    return df_result
     
 
 

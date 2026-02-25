@@ -1,0 +1,7 @@
+&INPUT
+peptide_name=VEADIAGHGQEVLIR	!The full peptide sequence
+parent_charge=3			!The charge of the parent
+PeakLabelThr_Frac=1.d-5		!maximum deviation from theory for assigning peak labels (absolute error in Da, used only if this is > PeakLabelThr_Frac)
+PeakLabelThr_Abs=0.003		!maximum deviation from theory for assigning peak labels (as a fraction of the fragment m/z, used only if this is > PeakLabelThr_Abs)
+MaxC13=1			!the maximum number of C13 atoms allowed per fragment (this value is further reduced for shorter fragments of the full peptide, although never to less than 1)
+/
