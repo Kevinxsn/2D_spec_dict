@@ -438,7 +438,7 @@ def get_complementray(pep, base):
 
 
 
-def coverage_table(df, lines, pep, iso, tresh = 0.05):
+def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
     
     ISOTOPE_OFFSET = 1.00335
     
@@ -506,7 +506,7 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05):
                     bases.sort()
                     bases_name = f'{bases[0][0]}, {bases[1][0]}'
                     
-                    the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{row['Ranking']}]"
+                    the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{int(row['Ranking'])}]"
                     if (bases_name in the_table[i]) and (the_table[i][bases_name] is not None):
                         the_table[i][bases_name] = the_name
                     if len(fpr_list[i]) < 3:
@@ -520,7 +520,7 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05):
                     bases.sort()
                     bases_name = f'{bases[0][0]}, {bases[1][0]}'
                     
-                    the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{row['Ranking']}]"
+                    the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{int(row['Ranking'])}]"
                     if (bases_name in the_table[i]) and (the_table[i][bases_name] is not None):
                         the_table[i][bases_name] = the_name
                     if len(fpr_list[i]) < 3:
@@ -653,7 +653,89 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05):
     the_table = the_table[cols]
     
     return the_table
+
+
+
+def process_ffc_annotations(df):
+    # Create a copy so we don't mutate the original dataframe
+    df_clean = df.copy()
     
+    # --- Dynamically find parental columns ---
+    parental_cols = []
+    for col in df_clean.columns:
+        col_str = str(col)
+        if col_str == 'parent':
+            parental_cols.append(col) # Keep the original column name object (could be string or other)
+        elif col_str.isdigit() and int(col_str) > 0:
+            parental_cols.append(col)
+            
+    # Dictionary to store locations of each FFC ID: { '193': [(row_idx, col_name), ...], ... }
+    ffc_locations = {}
+    
+    # 1. Scan the DataFrame to catalog all FFC IDs and their locations
+    for row_idx in df_clean.index:
+        for col in df_clean.columns:
+            val = df_clean.at[row_idx, col]
+            
+            # Skip if the cell is empty or not a string
+            if pd.isna(val) or not isinstance(val, str):
+                continue
+                
+            # Split by ',', get last element, use regex
+            parts = val.split(',')
+            if not parts:
+                continue
+                
+            last_part = parts[-1].strip()
+            match = re.search(r'\[(\d+)\]', last_part)
+            
+            if match:
+                ffc_id = match.group(1)
+                if ffc_id not in ffc_locations:
+                    ffc_locations[ffc_id] = []
+                ffc_locations[ffc_id].append((row_idx, col))
+                
+    # 2. Track which cells need to be removed or marked
+    cells_to_remove = set()
+    cells_to_mark = set()
+    
+    for ffc_id, locs in ffc_locations.items():
+        if len(locs) > 1: # The FFC has been reused
+            
+            # Check if it appears in any dynamically found parental/isotopic column
+            in_parental = any(col in parental_cols for _, col in locs)
+            
+            if in_parental:
+                # Rule 1: Remove from non-parental columns
+                for r, col in locs:
+                    if col not in parental_cols:
+                        cells_to_remove.add((r, col))
+            else:
+                # Rule 2: Mark as ('used') in all places it appears
+                for r, col in locs:
+                    cells_to_mark.add((r, col))
+                    
+    # 3. Apply the modifications and count them per column
+    mod_counts = {col: 0 for col in df_clean.columns}
+    
+    for r, col in cells_to_remove:
+        df_clean.at[r, col] = None  # Remove the annotation entirely
+        mod_counts[col] += 1
+        
+    for r, col in cells_to_mark:
+        val = df_clean.at[r, col]
+        # Append ('used') if it hasn't been added already
+        if isinstance(val, str) and "('used')" not in val:
+            df_clean.at[r, col] = f"{val} ('used')"
+        mod_counts[col] += 1
+        
+    # 4. Append the summary row at the bottom
+    summary_df = pd.DataFrame([mod_counts], index=['Modifications_Count'])
+    df_clean = pd.concat([df_clean, summary_df])
+    
+    return df_clean
+
+
 
 '''
     
@@ -1006,21 +1088,21 @@ def prioritize_zero(mixed_list):
 
 if __name__ == "__main__":
     #pep_seq = 'KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK'
-    pep_seq = 'VEADIAGHGQEVLIR'
-    #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
+    #pep_seq = 'VEADIAGHGQEVLIR'
+    pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
-    charge =3
+    charge =4
     iso = 4
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
     pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
     
     print(pep.pep_mass)
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
-    df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='VEADIAGHGQEVLIR-mz536-3_cov')
-    df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    #df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='VEADIAGHGQEVLIR-mz536-3_cov')
+    #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
-    '''
+    
     df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions",
         sep=r"\s+",          # any whitespace
@@ -1028,7 +1110,7 @@ if __name__ == "__main__":
         header=None,
         engine="python"
     )
-    '''
+    
     
     
     #ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='YLEFISDAIIHVLHSK-mz629-3_cov')
@@ -1053,10 +1135,10 @@ if __name__ == "__main__":
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
-    #loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
+    loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
     #loss_list = [-1, 0, 228.242, 227.239, 98.196, 652.483, 215.288, 651.981, 602.459, 716.999, 99.199, 298.277, 97.173]
     #loss_list = [-1, -2, -3, -4, 0, 15.002, 16.005, 98.081]
-    loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
+    #loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
     #loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
     #loss_list = [-1, 0, 2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
     
@@ -1084,10 +1166,11 @@ if __name__ == "__main__":
     print(df_all)
     cov_table = coverage_table(df_all, loss_list, pep, iso)
     print(cov_table)
+    cov_table = process_ffc_annotations(cov_table)
     
     
     
-    '''
+
     #print(cov_table[[-347.163, -346.151, -345.133]])
     #print(isocolumns(cov_table, [-347.163, -346.151, -345.133]))
     the_list = [i for i in cov_table.columns if type(i) != str]
@@ -1112,9 +1195,8 @@ if __name__ == "__main__":
     print(final_df)
             
     
-    path = "isocolumn.xlsx"
-    sheet = "3+"
+    path = "test.xlsx"
+    sheet = "4+"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={800}')
-    '''
