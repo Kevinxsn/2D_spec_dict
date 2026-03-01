@@ -1033,7 +1033,7 @@ def isocolumns(df, mass_list, base_is_parent=None, keep_multiple=False):
 
     return pd.DataFrame({f"isocolumn:{min(mass_list)}": iso_values}, index=df.index)
 
-def group_consecutive_floats(nums, threshold=0.5):
+def group_consecutive_floats(nums, threshold=0.1):
     if not nums:
         return []
 
@@ -1089,33 +1089,35 @@ def prioritize_zero(mixed_list):
 if __name__ == "__main__":
     #pep_seq = 'KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK'
     #pep_seq = 'VEADIAGHGQEVLIR'
-    pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
+    #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
-    charge =4
+    pep_seq = 'HGTVVLTALGGILK'
+    #pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
+    charge =3
     iso = 4
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
     pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
     
     print(pep.pep_mass)
-    #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
-    #df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='VEADIAGHGQEVLIR-mz536-3_cov')
-    #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
+    df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
+    df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
-    
+    '''
     df = pd.read_csv(
-        "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions",
+        "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
         skiprows=1,          
         header=None,
         engine="python"
     )
+    '''
     
     
-    
-    #ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='YLEFISDAIIHVLHSK-mz629-3_cov')
-    #ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
-    #df = ffc_df
+    ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
+    ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    df = ffc_df
     
     
     df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']  # rename as you like
@@ -1135,15 +1137,15 @@ if __name__ == "__main__":
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
-    loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
+    #loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
     #loss_list = [-1, 0, 228.242, 227.239, 98.196, 652.483, 215.288, 651.981, 602.459, 716.999, 99.199, 298.277, 97.173]
     #loss_list = [-1, -2, -3, -4, 0, 15.002, 16.005, 98.081]
     #loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
-    #loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
-    #loss_list = [-1, 0, 2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
+    loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
+    #loss_list = [-1, 0, -2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
+    #loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
     
-    
-    data = data.head(800
+    data = data.head(500
                      )
     partitioned_data, partitioned_names = partition_dataframe_by_charge(data, [charge, charge - 1])
     #data = select_best_partition(data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass, 0.1,partitioned_names, iso_range=iso)
@@ -1165,11 +1167,13 @@ if __name__ == "__main__":
     df_all = df_all.sort_values('Ranking', ascending = False)
     print(df_all)
     cov_table = coverage_table(df_all, loss_list, pep, iso)
-    print(cov_table)
+    #print(cov_table)
     cov_table = process_ffc_annotations(cov_table)
+    print(cov_table)
+    cov_table.to_csv('protein.csv')
     
-    
-    
+
+
 
     #print(cov_table[[-347.163, -346.151, -345.133]])
     #print(isocolumns(cov_table, [-347.163, -346.151, -345.133]))
@@ -1196,7 +1200,7 @@ if __name__ == "__main__":
             
     
     path = "test.xlsx"
-    sheet = "4+"
+    sheet = "HGTVVLTALGGILK"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={800}')
