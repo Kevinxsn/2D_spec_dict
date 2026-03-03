@@ -459,7 +459,11 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
         iso_table[i] = {j:float('inf') for j in rows}
     
     fcc, fpr1, fpr2 = {i:0 for i in columns}, {i:0 for i in columns}, {i:0 for i in columns}
-    fpr_list = {i:[] for i in columns}
+    fpr0_list = {i:[] for i in columns}
+    tfpr0_list = {i:[] for i in columns}
+    fpr1_list = {i:[] for i in columns}
+    tfpr1_list = {i:[] for i in columns}
+    
     
     
             
@@ -489,9 +493,13 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
                 
             elif row['base_name_A'] is None and row['base_name_B'] is None:
                 fpr1[i] += 1
-                if len(fpr_list[i]) < 3:
-                    fpr_list[i].append((row['m/z A'], row['m/z B'], [row['charge_A'], row['charge_B']], row['Ranking']))
-                    
+                if len(fpr0_list[i]) < 3:
+                    fpr0_list[i].append((row['m/z A'], row['m/z B'], [row['charge_A'], row['charge_B']], row['Ranking']))
+                    tfpr0_list[i].append((
+                                        round(row['m/z A'] * row['charge_A'], 4),
+                                        round(row['m/z B'] * row['charge_B'], 4),
+                                        round(row['m/z A'] * row['charge_A'] + row['m/z B'] * row['charge_B'], 4),
+                                    ))
             
             elif row['base_name_A'] is None or row['base_name_B'] is None:
                 fpr2[i] += 1
@@ -509,8 +517,14 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
                     the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{int(row['Ranking'])}]"
                     if (bases_name in the_table[i]) and (the_table[i][bases_name] is not None):
                         the_table[i][bases_name] = the_name
-                    if len(fpr_list[i]) < 3:
-                        fpr_list[i].append(the_name+'|') 
+                    if len(fpr1_list[i]) < 3:
+                        fpr1_list[i].append(the_name+'|') 
+                        tfpr1_list[i].append((
+                                            round(row['m/z A'] * row['charge_A'], 4),
+                                            round(row['m/z B'] * row['charge_B'], 4),
+                                            round(row['m/z A'] * row['charge_A'] + row['m/z B'] * row['charge_B'], 4),
+                                        ))
+            
                 else:
                     charge_A, charge_B = row['charge_A'], row['charge_B']
                     base_A, base_B = get_complementray(pep, row['base_name_B']), row['base_name_B']
@@ -523,8 +537,14 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
                     the_name = f"{bases[0][1]}, {bases[1][1]}, [{bases[0][2]}, {bases[1][2]}], {bases[0][3], bases[1][3]}, [{int(row['Ranking'])}]"
                     if (bases_name in the_table[i]) and (the_table[i][bases_name] is not None):
                         the_table[i][bases_name] = the_name
-                    if len(fpr_list[i]) < 3:
-                        fpr_list[i].append(the_name+'|') 
+                    if len(fpr1_list[i]) < 3:
+                        fpr1_list[i].append(the_name+'|') 
+                        tfpr1_list[i].append((
+                                            round(row['m/z A'] * row['charge_A'], 4),
+                                            round(row['m/z B'] * row['charge_B'], 4),
+                                            round(row['m/z A'] * row['charge_A'] + row['m/z B'] * row['charge_B'], 4),
+                                        ))
+            
                         
                         
                         
@@ -595,14 +615,35 @@ def coverage_table(df, lines, pep, iso, tresh = 0.05, forbidden_set = {}):
     the_table = pd.concat([the_table, pd.DataFrame([offset], index=['offset'])])
     max_k = 3
     
-    fpr_rows = []
+    fpr0_rows = []
     for i in range(max_k):
-        row_i = {col: (vals[i] if i < len(vals) else None) for col, vals in fpr_list.items()}
-        fpr_rows.append(row_i)
+        row_i = {col: (vals[i] if i < len(vals) else None) for col, vals in fpr0_list.items()}
+        fpr0_rows.append(row_i)
+        
+    tfpr0_rows = []
+    for i in range(max_k):
+        row_i = {col: (vals[i] if i < len(vals) else None) for col, vals in tfpr0_list.items()}
+        tfpr0_rows.append(row_i)
+    
+    fpr1_rows = []
+    for i in range(max_k):
+        row_i = {col: (vals[i] if i < len(vals) else None) for col, vals in fpr1_list.items()}
+        fpr1_rows.append(row_i)
+        
+    tfpr1_rows = []
+    for i in range(max_k):
+        row_i = {col: (vals[i] if i < len(vals) else None) for col, vals in tfpr1_list.items()}
+        tfpr1_rows.append(row_i)
 
-    fpr_df = pd.DataFrame(fpr_rows, index=[f"FPR_LIST_{i+1}" for i in range(max_k)])
+    fpr0_df = pd.DataFrame(fpr0_rows, index=[f"FPR0_LIST_{i+1}" for i in range(max_k)])
+    tfpr0_df = pd.DataFrame(tfpr0_rows, index=[f"TFPR0_LIST_{i+1}" for i in range(max_k)])
+    fpr1_df = pd.DataFrame(fpr1_rows, index=[f"FPR1_LIST_{i+1}" for i in range(max_k)])
+    tfpr1_df = pd.DataFrame(tfpr1_rows, index=[f"TFPR1_LIST_{i+1}" for i in range(max_k)])
 
-    the_table = pd.concat([the_table, fpr_df])
+    the_table = pd.concat([the_table, fpr0_df])
+    the_table = pd.concat([the_table, tfpr0_df])
+    the_table = pd.concat([the_table, fpr1_df])
+    the_table = pd.concat([the_table, tfpr1_df])
     
     
     the_table["Covered"] = (the_table["Row Count"] != 0).map({True: "+", False: "0"})
@@ -676,6 +717,8 @@ def process_ffc_annotations(df):
     for row_idx in df_clean.index:
         for col in df_clean.columns:
             val = df_clean.at[row_idx, col]
+            
+            
             
             # Skip if the cell is empty or not a string
             if pd.isna(val) or not isinstance(val, str):
@@ -1091,20 +1134,20 @@ if __name__ == "__main__":
     #pep_seq = 'VEADIAGHGQEVLIR'
     #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
-    pep_seq = 'HGTVVLTALGGILK'
-    #pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
-    charge =3
-    iso = 4
+    #pep_seq = 'HGTVVLTALGGILK'
+    pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
+    charge =19
+    iso = 20
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
     pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
     
     print(pep.pep_mass)
-    pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
-    df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
-    df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
+    #df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
+    #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
-    '''
+    
     df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
@@ -1112,12 +1155,12 @@ if __name__ == "__main__":
         header=None,
         engine="python"
     )
-    '''
     
     
-    ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
-    ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
-    df = ffc_df
+    
+    #ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
+    #ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    #df = ffc_df
     
     
     df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']  # rename as you like
@@ -1133,7 +1176,7 @@ if __name__ == "__main__":
         axis=1
     )
     data = data.drop_duplicates(subset="pair_key").drop(columns="pair_key")
-    
+    head_num = 1000
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
@@ -1141,11 +1184,11 @@ if __name__ == "__main__":
     #loss_list = [-1, 0, 228.242, 227.239, 98.196, 652.483, 215.288, 651.981, 602.459, 716.999, 99.199, 298.277, 97.173]
     #loss_list = [-1, -2, -3, -4, 0, 15.002, 16.005, 98.081]
     #loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
-    loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
+    #loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
     #loss_list = [-1, 0, -2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
-    #loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
+    loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
     
-    data = data.head(500
+    data = data.head(head_num
                      )
     partitioned_data, partitioned_names = partition_dataframe_by_charge(data, [charge, charge - 1])
     #data = select_best_partition(data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass, 0.1,partitioned_names, iso_range=iso)
@@ -1153,7 +1196,7 @@ if __name__ == "__main__":
 
     df_all = []
     for i in loss_list:
-        each_data = select_best_partition(partitioned_data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass - i, 0.1,partitioned_names, iso_range=0)
+        each_data = select_best_partition(partitioned_data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass - i, 0.05,partitioned_names, iso_range=0)
         #each_data = each_data.sort_values('Ranking', ascending=True)
         num_ffc = each_data.shape[0]
         
@@ -1199,8 +1242,8 @@ if __name__ == "__main__":
     print(final_df)
             
     
-    path = "test.xlsx"
-    sheet = "HGTVVLTALGGILK"
+    path = "protein.xlsx"
+    sheet = f"N={head_num}"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={800}')
+        final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={head_num}')
