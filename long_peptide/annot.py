@@ -1131,13 +1131,15 @@ def prioritize_zero(mixed_list):
 
 if __name__ == "__main__":
     #pep_seq = 'KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK'
+    #pep_seq = 'LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES'
+    #pep_seq = 'YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY'
     #pep_seq = 'VEADIAGHGQEVLIR'
     #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
     #pep_seq = 'HGTVVLTALGGILK'
     pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
     charge =19
-    iso = 20
+    iso = 4
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
     pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
     
@@ -1147,7 +1149,7 @@ if __name__ == "__main__":
     #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
-    
+    '''
     df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
@@ -1155,6 +1157,7 @@ if __name__ == "__main__":
         header=None,
         engine="python"
     )
+    '''
     
     
     
@@ -1163,7 +1166,19 @@ if __name__ == "__main__":
     #df = ffc_df
     
     
-    df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']  # rename as you like
+    #df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']  # rename as you like
+    
+    df = pd.read_csv(
+        "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/v2/DEISOTOPING_V2/Covariance_Data_Myoglobin-Z19_NCE35_250_ions_Deisotoped_FirstAttempt",
+        sep=r"\s+",          # any whitespace
+        skiprows=1,          
+        header=None,
+        engine="python"
+    )
+    df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking', 'iso']
+    
+    
+    
     df = df[df['Score'] > 0]
     data = df
     data = data.sort_values('Ranking', ascending=True)
@@ -1176,7 +1191,7 @@ if __name__ == "__main__":
         axis=1
     )
     data = data.drop_duplicates(subset="pair_key").drop(columns="pair_key")
-    head_num = 1000
+    head_num = 20000
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
@@ -1196,7 +1211,7 @@ if __name__ == "__main__":
 
     df_all = []
     for i in loss_list:
-        each_data = select_best_partition(partitioned_data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass - i, 0.05,partitioned_names, iso_range=0)
+        each_data = select_best_partition(partitioned_data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass - i, 0.1,partitioned_names, iso_range=0)
         #each_data = each_data.sort_values('Ranking', ascending=True)
         num_ffc = each_data.shape[0]
         
@@ -1242,8 +1257,8 @@ if __name__ == "__main__":
     print(final_df)
             
     
-    path = "protein.xlsx"
-    sheet = f"N={head_num}"
+    path = "deiso_v2.xlsx"
+    sheet = f"protein"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={head_num}')

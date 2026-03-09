@@ -235,9 +235,9 @@ if __name__ == "__main__":
     #ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
     #ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
-    parent_charge = 19
+    parent_charge = 4
     
-    
+    '''
     ffc_df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
@@ -246,25 +246,22 @@ if __name__ == "__main__":
         engine="python"
     )
     ffc_df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking'] 
+    '''
+    
+    ffc_df = pd.read_csv(
+        "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/Covariance_Data_GLP2-Z4_NCE15_200_ions_Deisotoped",
+        sep=r"\s+",          # any whitespace
+        skiprows=1,          
+        header=None,
+        engine="python"
+    )
+    ffc_df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking', 'iso'] 
     
     
     
     ffc_df = ffc_df.sort_values('Ranking', ascending=True)
     
     
-    '''
-    ffc_df["pair_key"] = ffc_df.apply(
-        lambda row: tuple(sorted([row["m/z fragment 1"], row["m/z fragment 2"]])),
-        axis=1
-    )
-
-    # drop duplicated pairs, keep first occurrence
-    ffc_df = ffc_df.drop_duplicates(subset="pair_key").drop(columns="pair_key")
-    '''
-    
-    ffc_df = ffc_df[ffc_df['Ranking'] != -1]
-    #ffc_df = ffc_df[ffc_df['Ranking'] <= 5000]
-    ffc_df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']
     
     clusters_df = detect_ffc_line_clusters(
         df=ffc_df,
@@ -280,10 +277,10 @@ if __name__ == "__main__":
     ## bewlow are some further analysis
     
     
-    #parent = 3767.844130000001
+    parent = 3767.844130000001
     #parent = 1887.0362399999997
     #parent = 1380.85609
-    parent = 892.6370 * 19
+    #parent = 892.6370 * 19
     clusters_df['Parent+X'] =  clusters_df['center'] - parent
     clusters_df = clusters_df.sort_values('Parent+X', ascending=False)
     clusters_df = clusters_df[clusters_df['Parent+X'] < 4.05]
