@@ -1134,11 +1134,11 @@ if __name__ == "__main__":
     #pep_seq = 'LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES'
     #pep_seq = 'YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY'
     #pep_seq = 'VEADIAGHGQEVLIR'
-    #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
+    pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
     #pep_seq = 'HGTVVLTALGGILK'
-    pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
-    charge =19
+    #pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
+    charge =4
     iso = 4
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
     pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
@@ -1149,14 +1149,19 @@ if __name__ == "__main__":
     #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
-    '''
+    
     df = pd.read_csv(
-        "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
-        sep=r"\s+",          # any whitespace
+        #"/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
+        '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/output_z4.tsv',
+        
+        #sep=r"\s+",          # any whitespace
+        sep = '\t',
         skiprows=1,          
         header=None,
         engine="python"
     )
+    #print(df.head())
+    df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']
     '''
     
     
@@ -1176,7 +1181,7 @@ if __name__ == "__main__":
         engine="python"
     )
     df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking', 'iso']
-    
+    '''
     
     
     df = df[df['Score'] > 0]
@@ -1191,17 +1196,17 @@ if __name__ == "__main__":
         axis=1
     )
     data = data.drop_duplicates(subset="pair_key").drop(columns="pair_key")
-    head_num = 20000
+    head_num = 2000
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
-    #loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
+    loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
     #loss_list = [-1, 0, 228.242, 227.239, 98.196, 652.483, 215.288, 651.981, 602.459, 716.999, 99.199, 298.277, 97.173]
     #loss_list = [-1, -2, -3, -4, 0, 15.002, 16.005, 98.081]
     #loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
     #loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
     #loss_list = [-1, 0, -2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
-    loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
+    #loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
     
     data = data.head(head_num
                      )
@@ -1258,7 +1263,7 @@ if __name__ == "__main__":
             
     
     path = "deiso_v2.xlsx"
-    sheet = f"protein"
+    sheet = f"z4_test"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={head_num}')
