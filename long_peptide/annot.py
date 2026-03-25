@@ -1128,20 +1128,61 @@ def prioritize_zero(mixed_list):
     # Combine them, putting the zero-containing items first
     return has_zero + others
 
+def cov_notation(df):
+    the_list = df.iloc[:, 1]
+    result = ''
+    cuts = 0
+    for i in the_list:
+        if i == '+':
+            result += '1'
+            cuts += 1
+        elif i == '0' or i == 0:
+            result += '0'
+        else:
+            continue
+    return result[:-2] + f'({cuts})'
+        
+
+def add_overlap_stats(df, parent_col='parent'):
+    # 1. Create a boolean mask of where data exists (True if NOT null)
+    # This treats None, <NA>, and NaN as 'nothing'
+    has_content = df.notna()
+    
+    # 2. Get the specific mask for the parent column
+    parent_has_content = has_content[parent_col]
+    
+    # 3. Calculate Overlap: (Column has content) AND (Parent has content)
+    # We use .values[:, None] to align the parent column against all other columns
+    overlap_counts = (has_content & parent_has_content.values[:, None]).sum()
+    
+    # 4. Calculate Non-Overlap: (Column has content) AND (Parent is NULL)
+    non_overlap_counts = (has_content & ~parent_has_content.values[:, None]).sum()
+    
+    # 5. Create new rows as DataFrames to concat
+    stats_df = pd.DataFrame([overlap_counts, non_overlap_counts], 
+                            index=['|SIM(A*,B)|', '|DIFF(A*,B)|'])
+    
+    # 6. Append to the original dataframe
+    result_df = pd.concat([df, stats_df])
+    
+    return result_df.loc['|SIM(A*,B)|'], result_df.loc['|DIFF(A*,B)|']
+
+
+
 
 if __name__ == "__main__":
     #pep_seq = 'KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK'
     #pep_seq = 'LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES'
-    #pep_seq = 'YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY'
+    pep_seq = 'YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY'
     #pep_seq = 'VEADIAGHGQEVLIR'
-    pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
+    #pep_seq = 'HADGSFSDEMNTILDNLAARDFINWLIQTKITD'
     #pep_seq = 'YLEFISDAIIHVLHSK'
     #pep_seq = 'HGTVVLTALGGILK'
     #pep_seq = 'GLSDGEWQQVLNVWGKVEADIAGHGQEVLIRLFTGHPETLEKFDKFKHLKTEAEMKASEDLKKHGTVVLTALGGILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISDAIIHVLHSKHPGDFGADAQGAMTKALELFRNDIAAKYKELGFQG'
-    charge =4
-    iso = 4
-    #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
-    pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
+    charge = 7
+    iso = 7
+    pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20='NH3')
+    #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+', end_h20=True)
     
     print(pep.pep_mass)
     #pep = peptide.Pep(f'[{pep_seq}+{charge}H]{charge}+')
@@ -1149,10 +1190,22 @@ if __name__ == "__main__":
     #df = df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
     
+    df = pd.read_csv(
+        "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariances_Neuropeptide_ChargeStates/Covariance_Data.Neuropeptide_z7_611_dm2_NCE25",
+        sep=r"\s+",          # any whitespace
+        skiprows=1,          
+        header=None,
+        engine="python"
+    )
+    df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking'] 
+    num_ffcs = df.shape[0]
     
+    
+    
+    '''
     df = pd.read_csv(
         #"/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
-        '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/output_z4.tsv',
+        '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariances_Neuropeptide_ChargeStates/Covariance_Data_Neuropeptide_z7_611_dm2_NCE25_Deisotoped',
         
         #sep=r"\s+",          # any whitespace
         sep = '\t',
@@ -1162,7 +1215,7 @@ if __name__ == "__main__":
     )
     #print(df.head())
     df.columns = ['m/z A', 'm/z B', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']
-    '''
+    
     
     
     
@@ -1186,30 +1239,40 @@ if __name__ == "__main__":
     
     df = df[df['Score'] > 0]
     data = df
+    
+    data['Ranking'] = data['Ranking'].fillna(-1)
+    data['Ranking'] = data['Ranking'].astype(int)
     data = data.sort_values('Ranking', ascending=True)
     data = data[data['Ranking'] != -1]
     
     
-    
+    '''
     data["pair_key"] = data.apply(
         lambda row: tuple(sorted([row["m/z A"], row["m/z B"]])),
         axis=1
     )
     data = data.drop_duplicates(subset="pair_key").drop(columns="pair_key")
-    head_num = 2000
+    '''
+    head_num = 1000
     
     
     data = data[['m/z A', 'm/z B', 'Ranking']]
-    loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
+    #loss_list = [-1, -2, -3, -4 , 0, 14.993, 347.163, 346.151, 345.133, 348.173, 15.992, 12.965, 537.187, 162.016, 41.986, 26.982, 16.998, 943.469, 249.379, 111.040, 126.033, 132.035, 145.030, 238.052]
     #loss_list = [-1, 0, 228.242, 227.239, 98.196, 652.483, 215.288, 651.981, 602.459, 716.999, 99.199, 298.277, 97.173]
     #loss_list = [-1, -2, -3, -4, 0, 15.002, 16.005, 98.081]
+    #loss_list = [-1, -2, -3, -4, -5, -6, -7, 0]
+    loss_list = [-1, -2, -3, -4, -5, -6, -7, 0]
     #loss_list = [229.111, -1, 0, 228.109, 99.065, 653.352, 216.157, 652.851, 100.068, 299.146, 98.042, -2]
     #loss_list = [-1,-2, 0, 112.080, 113.083, 17.003, 18.006, 318.194, 618.430, 487.301, 474.274, 471.310, 442.297, 430.299, 398.217, 331.224, 339.235, 26.991, 15.990, 99.084, 114.086]
     #loss_list = [-1, 0, -2, 276.144, 277.146, 406.188, 666.362, 831.940, 295.157, 275.141, 405.187, 26.988, 112.091, 113.094, 25.970, 390.231, 739.397, 389.229, 722.441, 665.359, 113.080, 552.257]
     #loss_list = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, 0, -14, -15, -16, -17, -18, -19, -20]
+    #loss_list = [20.782, 35.118, 10.561, 30.331, 29.683, 18.005, 6.604, 55.207, 11.875, 3.919, 12.747, 39.179, 40.616, 65.199, 56.503, 79.509, 24.05, 28.738, 61.637, 43.895, 5.579, 24.526, 110.429, 0.608, 98.358, 0.515, 52.778, 8.648, 63.842, 47.714, 38.001]
     
-    data = data.head(head_num
-                     )
+    data = data.sort_values('Ranking', ascending = True)
+    data = data.head(head_num)
+    
+    print('result')
+    print(data.head())
     partitioned_data, partitioned_names = partition_dataframe_by_charge(data, [charge, charge - 1])
     #data = select_best_partition(data, ['m/z A', 'm/z B', 'Ranking'], pep.pep_mass, 0.1,partitioned_names, iso_range=iso)
     print(partitioned_data.head())
@@ -1227,8 +1290,9 @@ if __name__ == "__main__":
     
     
     df_all = pd.concat(df_all, ignore_index=True)
-    df_all = df_all.sort_values('Ranking', ascending = False)
+    df_all = df_all.sort_values('Ranking', ascending = True)
     print(df_all)
+    df_all.to_csv('protein_result.csv')
     cov_table = coverage_table(df_all, loss_list, pep, iso)
     #print(cov_table)
     cov_table = process_ffc_annotations(cov_table)
@@ -1246,6 +1310,10 @@ if __name__ == "__main__":
     the_list = prioritize_zero(group_consecutive_floats(the_list))
     #df_list = [cov_table[:, 0], cov_table[:, 1]]
     df_list = [cov_table[cov_table.columns[0]], cov_table[cov_table.columns[1]]]
+    
+
+    
+    
     for i in range(len(the_list)):
         if type(the_list[i]) is list:
 
@@ -1259,11 +1327,26 @@ if __name__ == "__main__":
     final_df = pd.concat(df_list, axis=1)
     final_df = final_df.join(cov_table[cov_table.columns[-2]])
     final_df = final_df.join(cov_table[cov_table.columns[-1]])
+    
+    loss_list_modified = [-i if i != 0 else 'parent' for i in loss_list]
+    sim, diff = add_overlap_stats(final_df.iloc[0:pep.pep_len - 1][loss_list_modified])
+    final_df = pd.concat([final_df, sim.to_frame().T, diff.to_frame().T], ignore_index=False)
+    
     print(final_df)
+    
+    
+    
             
     
-    path = "deiso_v2.xlsx"
-    sheet = f"z4_test"
+    path = "annot_diff_test.xlsx"
+    sheet = "z7_611_dm2_NCE25"
     
     with pd.ExcelWriter(path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         final_df.to_excel(writer, sheet_name=sheet, index_label=f'N={head_num}')
+    print(cov_notation(final_df))
+    print('num of total FFCs: ', num_ffcs)
+
+    
+
+
+    
