@@ -50,6 +50,6 @@ delta_val = 0.001
 
 s, sim, virtuals = find_optimal_shift_and_virtual_ions(internal_line_A, master_b_ladder, delta=delta_val)
 
-print(f"Optimal Shift (s): {s:.2f}")
-print(f"SIM Score: {sim}")
-print(f"Virtual Ions to add to Grandmaster Ladder: {virtuals}")
+#print(f"Optimal Shift (s): {s:.2f}")
+#print(f"SIM Score: {sim}")
+#print(f"Virtual Ions to add to Grandmaster Ladder: {virtuals}")
