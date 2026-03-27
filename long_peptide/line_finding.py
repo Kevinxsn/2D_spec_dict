@@ -232,12 +232,12 @@ def group_by_from_center(df: pd.DataFrame, thresh: float) -> pd.DataFrame:
 
 if __name__ == "__main__":
     
-    #ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
-    #ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
+    ffc_df = pd.read_excel('/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/Covariance Scoring Tables 10000 Scans.xlsx', sheet_name='HGTVVLTALGGILK-mz460-3_cov')
+    ffc_df = ffc_df[['m/z fragment 1', 'm/z fragment 2', 'Covariance', 'Partial Cov.', 'Score', 'Ranking']]
     
-    parent_charge = 19
+    parent_charge = 3
     
-    
+    '''
     ffc_df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     
     
     
-    '''
+    
     ffc_df = pd.read_csv(
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariance_Data_Myoglobin_Z19_NCE35_250_ions_2000Fragments",
         sep=r"\s+",          # any whitespace
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     
     ffc_df = ffc_df.sort_values('Ranking', ascending=True)
     ffc_df = ffc_df[ffc_df['Ranking'] != -1]
-    ffc_df = ffc_df.head(1000)
+    ffc_df = ffc_df.head(100)
     
     
     clusters_df = detect_ffc_line_clusters(
