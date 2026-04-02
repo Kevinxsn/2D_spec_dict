@@ -523,9 +523,9 @@ if __name__ == "__main__":
     )
     SHEET_NAME = "VEADIAGHGQEVLIR-mz536-3_cov"
     PARENT_CHARGE = 3
-    PARENT_MASS = 536 * 3   # neutral mass of precursor
+    PARENT_MASS = 1608.87   # neutral mass of precursor
     TOP_N = 100
-    DELTA = 0.05
+    DELTA = 0.01
     MIN_CLUSTER_SIZE = 3
 
     # ── Load & prepare ────────────────────────────────────────────────────

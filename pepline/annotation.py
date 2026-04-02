@@ -1057,28 +1057,37 @@ if __name__ == "__main__":
     import interpreter_modify  # noqa: F401
 
     # ── Configuration ─────────────────────────────────────────────────────
-    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
-    CHARGE = 6
-    ISO_RANGE = 7
+    #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
+    PEP_SEQ = "VEADIAGHGQEVLIR"
+    CHARGE = 3
+    ISO_RANGE = 3
     TOP_N = 1000
     MASS_THRESHOLD = 0.1
-    LOSS_LIST = [-1, -2, -3, -4, -5, -6, -7, 0]
+    LOSS_LIST = [-1, -2, -3, 0, 229.111]
+    
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
     OUTPUT_EXCEL = "annot.xlsx"
-    OUTPUT_SHEET = "z7_611_dm2_NCE25"
+    OUTPUT_SHEET = "VEA"
 
     # ── Build peptide ─────────────────────────────────────────────────────
-    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
+    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
+    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
     print(f"Precursor mass: {pep.pep_mass}")
 
     # ── Load FFC data ─────────────────────────────────────────────────────
+    
+    '''
     data_path = (
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/"
         "Covariances_Neuropeptide_ChargeStates/"
         "Covariance_Data.Neuropeptide_z7_611_dm2_NCE25"
     )
+    '''
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3+_replaced.txt"
+    
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     num_ffcs_total = len(df)
@@ -1158,16 +1167,18 @@ if __name__ == "__main__":
     # ── Rename loss-line columns with annotations ──────────────────────────
     # Provide a dict mapping original column names → parenthesised info.
     # Example: threshold, p-value, or any parameter you want displayed.
+    
     COLUMN_ANNOTATIONS = {
-        "parent": "0.02",
-        1: "0.05",
-        2: "0.03",
-        3: "0.04",
-        4: "0.06",
-        5: "0.03",
-        6: "0.04",
-        7: "0.05",
+    "parent": "0.02",
+    1: "0.05",
+    2: "0.03",
+    3: "0.04",
+    4: "0.06",
+    5: "0.03",
+    6: "0.04",
+    -300: "0.05",
     }
+
     final_df = rename_loss_columns(final_df, COLUMN_ANNOTATIONS)
 
     print(final_df)
