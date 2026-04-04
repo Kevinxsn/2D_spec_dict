@@ -517,6 +517,7 @@ def prepare_ffc_data(
 
 if __name__ == "__main__":
     # ── Configuration ─────────────────────────────────────────────────────
+    
     EXCEL_PATH = (
         "/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/data/"
         "Covariance Scoring Tables 10000 Scans.xlsx"
@@ -527,9 +528,13 @@ if __name__ == "__main__":
     TOP_N = 100
     DELTA = 0.01
     MIN_CLUSTER_SIZE = 3
+    
 
     # ── Load & prepare ────────────────────────────────────────────────────
-    ffc_df = load_ffc_excel(EXCEL_PATH, SHEET_NAME)
+    #ffc_df = load_ffc_excel(EXCEL_PATH, SHEET_NAME)
+    data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3+_replaced.txt'
+    ffc_df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
+    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
 
     # ── Run full pipeline ─────────────────────────────────────────────────

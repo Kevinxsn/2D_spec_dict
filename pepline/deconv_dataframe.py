@@ -263,7 +263,8 @@ def _deconvolute_single_column(mz_vals, intensities,
 
     for env_id, env in enumerate(envelopes):
         mass = determine_monoisotopic_mass(env, mono_lookup, env_lookup)
-        mz_out = mass + PROTON_MASS  # [M+H]+ singly protonated
+        #mz_out = mass + PROTON_MASS  # [M+H]+ singly protonated
+        mz_out = (mass + PROTON_MASS * env["charge"]) / env["charge"] 
         for orig_idx in env["original_indices"]:
             charges[orig_idx] = env["charge"]
             envelope_ids[orig_idx] = env_id
@@ -358,6 +359,10 @@ data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
 save_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/"
 df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
 df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+
+df = df[df['Ranking'] != -1]
+df = df.sort_values('Ranking')
+#df = df.head(20000)
 df_annotated, df_replaced = deconvolute_pairs(
     df,
     mz_col_a="m/z A",
