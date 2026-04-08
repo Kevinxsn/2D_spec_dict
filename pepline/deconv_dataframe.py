@@ -360,6 +360,10 @@ save_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/"
 df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
 df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
 
+
+
+
+
 df = df[df['Ranking'] != -1]
 df = df.sort_values('Ranking')
 #df = df.head(20000)
@@ -372,8 +376,8 @@ df_annotated, df_replaced = deconvolute_pairs(
     theo_patt_path='theo_patt.txt',
 )
 
-df_annotated.to_csv(save_path + 'VEA3+_annotated.txt', sep = '\t', index = False)
-df_replaced.to_csv(save_path + 'VEA3+_replaced.txt', sep = '\t', index = False)
+df_annotated.to_csv(save_path + 'VEA3+intensity_annotated.txt', sep = '\t', index = False)
+df_replaced.to_csv(save_path + 'VEA3+intensity_replaced.txt', sep = '\t', index = False)
 
 
 # ---------------------------------------------------------------------------
