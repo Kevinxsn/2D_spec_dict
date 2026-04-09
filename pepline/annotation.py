@@ -1058,10 +1058,10 @@ if __name__ == "__main__":
 
     # ── Configuration ─────────────────────────────────────────────────────
     #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
-    PEP_SEQ = "VEADIAGHGQEVLIR"
-    #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    CHARGE = 3
-    ISO_RANGE = 3
+    #PEP_SEQ = "VEADIAGHGQEVLIR"
+    PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
+    CHARGE = 4
+    ISO_RANGE = 4
     TOP_N = 1000
     MASS_THRESHOLD = 0.1
     LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
@@ -1071,7 +1071,7 @@ if __name__ == "__main__":
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
     OUTPUT_EXCEL = "result/deconv_result.xlsx"
-    OUTPUT_SHEET = "3+test2"
+    OUTPUT_SHEET = "3+test3"
 
     # ── Build peptide ─────────────────────────────────────────────────────
     #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
@@ -1089,14 +1089,17 @@ if __name__ == "__main__":
     '''
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V2/Covariance_Data_GLP2-Z4_NCE15_200_ions_Deisotoped_FFC_Sum_Top10000"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
     
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
+    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
     #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
     df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     

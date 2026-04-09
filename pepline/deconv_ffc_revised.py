@@ -784,10 +784,7 @@ if __name__ == "__main__":
         +1 * 1.00335,
         +2 * 1.00335,
         +3 * 1.00335,
-        -229.112, 
-        -228.109, 
-        -100.069, 
-        -99.069,
+        -229.112
     ]
 
     df = pd.read_csv(DATA_PATH, sep="\t", skiprows=1, header=None, engine="python")
@@ -812,11 +809,11 @@ if __name__ == "__main__":
         mz_tol=0.01,
     )
 
-    result["annotated"].to_csv(SAVE_DIR + "VEA3_ffc_annotated.txt",
+    result["annotated"].to_csv(SAVE_DIR + "VEA3_ffc_loss_annotated.txt",
                                sep="\t", index=False)
-    result["replaced"].to_csv(SAVE_DIR + "VEA3_ffc_replaced.txt",
+    result["replaced"].to_csv(SAVE_DIR + "VEA3_ffc_loss_replaced.txt",
                               sep="\t", index=False)
-    result["line_map"].to_csv(SAVE_DIR + "VEA3_ffc_line_map.txt",
+    result["line_map"].to_csv(SAVE_DIR + "VEA3_ffc_loss_line_map.txt",
                               sep="\t", index=False)
 
     print(f"Lines used:        {result['line_map']['line_id'].nunique()}")
