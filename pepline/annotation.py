@@ -1059,23 +1059,32 @@ if __name__ == "__main__":
     # ── Configuration ─────────────────────────────────────────────────────
     #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
     #PEP_SEQ = "VEADIAGHGQEVLIR"
-    PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    CHARGE = 4
-    ISO_RANGE = 4
-    TOP_N = 1000
+    #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
+    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
+    #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
+    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
+    
+    
+    
+    CHARGE = 6
+    ISO_RANGE = 6
+    TOP_N = 2000
     MASS_THRESHOLD = 0.1
-    LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
+    #LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
     #LOSS_LIST = [-1, -2, -3, -4, 0, 346.151, 347.163, 345.133]
+    LOSS_LIST = [-1, -2, -3, -4, -5, -6, 0]
     
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
-    OUTPUT_EXCEL = "result/deconv_result.xlsx"
-    OUTPUT_SHEET = "3+test3"
+    #OUTPUT_EXCEL = "result/6+_result.xlsx"
+    OUTPUT_EXCEL = "result/James_V1.xlsx"
+    #OUTPUT_SHEET = "KWK6+NCE20_test"
+    OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
-    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
-    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
+    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
+    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
     print(f"Precursor mass: {pep.pep_mass}")
 
     # ── Load FFC data ─────────────────────────────────────────────────────
@@ -1090,9 +1099,11 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
-    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V2/Covariance_Data_GLP2-Z4_NCE15_200_ions_Deisotoped_FFC_Sum_Top10000"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_Neuropeptide-Z6_NCE25_170_ions_Deisotoped_FFC_Sum_Top10000"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
+    #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.CecropinA_Z6_NCE20_200_ions'
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
@@ -1100,8 +1111,8 @@ if __name__ == "__main__":
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
-    #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
-    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
+    df.columns = ["m/z A", "m/z B","Score", "Ranking"]
+    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
     print(df.head())
     num_ffcs_total = len(df)
@@ -1111,6 +1122,7 @@ if __name__ == "__main__":
     df["Ranking"] = df["Ranking"].fillna(-1).astype(int)
     df = df.sort_values("Ranking").query("Ranking != -1")
     df = df[["m/z A", "m/z B", "Ranking"]].head(TOP_N)
+    df = df[df['Ranking'] <= TOP_N]
 
     print("Top rows:")
     print(df.head())
