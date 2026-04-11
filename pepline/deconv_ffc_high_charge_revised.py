@@ -595,25 +595,48 @@ def _deconvolute_charge1_axis(
         class_mz = mz1_vals[class_rows]
         class_int = intensities[class_rows]
 
-        # ── Step 1: collapse duplicates within this charge class ─────────
-        # Round to a fine grid so float jitter at 1e-6 doesn't split
-        # equal peaks, but coarse enough to merge the tiny disagreements
-        # that arise when the same physical peak is reconstructed via
-        # different (i, j) splits (typically <0.005 Da).
-        round_decimals = 3
-        keys = np.round(class_mz, round_decimals)
-        unique_keys, inverse = np.unique(keys, return_inverse=True)
+        # ── Step 1: collapse near-duplicates within this charge class ────
+        # The same physical peak can arrive with slightly different
+        # charge-1-equivalent values when reconstructed via different
+        # (i, j) splits (typical disagreement <0.01 Da).  Simple
+        # rounding misses borderline cases; instead we do single-
+        # linkage gap-based merging: sort, scan for gaps < merge_tol,
+        # and group consecutive values that are within the tolerance
+        # into one representative (weighted-mean m/z, max intensity).
+        merge_tol = mz_tol  # reuse the isotope-spacing tolerance
 
-        # Each unique peak's intensity is the intensity of the first
-        # input row that maps to it.  Per-peak intensities are constant
-        # across rows by construction.
-        unique_int = np.empty(unique_keys.size, dtype=float)
-        seen = np.zeros(unique_keys.size, dtype=bool)
-        for local_row in range(class_rows.size):
-            u = inverse[local_row]
-            if not seen[u]:
-                unique_int[u] = class_int[local_row]
-                seen[u] = True
+        order = np.argsort(class_mz)
+        mz_sorted = class_mz[order]
+        int_sorted = class_int[order]
+
+        # Single-linkage: consecutive values within merge_tol are in
+        # the same group.
+        groups: List[List[int]] = []
+        start = 0
+        for k in range(1, len(mz_sorted)):
+            if mz_sorted[k] - mz_sorted[k - 1] > merge_tol:
+                groups.append(list(range(start, k)))
+                start = k
+        groups.append(list(range(start, len(mz_sorted))))
+
+        n_unique = len(groups)
+        unique_keys = np.empty(n_unique, dtype=float)
+        unique_int = np.empty(n_unique, dtype=float)
+        # inverse: for each element in class_mz, which unique group
+        # does it belong to?
+        inverse = np.empty(len(class_mz), dtype=int)
+
+        for g_idx, members in enumerate(groups):
+            member_mz = mz_sorted[members]
+            member_int = int_sorted[members]
+            # Representative m/z = intensity-weighted mean of the group
+            unique_keys[g_idx] = np.average(member_mz, weights=member_int)
+            # Representative intensity = max in the group (most
+            # informative for envelope shape scoring downstream)
+            unique_int[g_idx] = member_int.max()
+            # Map original (sorted) positions back
+            for m in members:
+                inverse[order[m]] = g_idx
 
         # ── Step 2: run the standard 1D envelope finder on the pool ──────
         envelopes = _find_isotopic_envelopes(
@@ -899,14 +922,14 @@ if __name__ == "__main__":
     # Same data layout as your existing scripts.
     DATA_PATH = (
         "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/"
-        "KWK6+NCE20_with_intensity_top_8000"
+        "YPS6+_with_intensity"
     )
     SAVE_DIR = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/"
 
     PARENT_CHARGE = 6
     #PARENT_MASS = 3767.8441  # neutral precursor mass for HAD4+
     #PARENT_MASS = 1608.86917  # neutral precursor mass for HAD4+
-    PARENT_MASS = 667.90419 * 6
+    PARENT_MASS = 712.52139 * 6
 
     # Lines we expect to find on the FFC map: parental + a few isotope
     # satellites on each side.  Mirrors annotation.py's iso_range idea
@@ -928,6 +951,9 @@ if __name__ == "__main__":
         "Score", "Ranking", "intensity A", "intensity B",
     ]
     df = df[df["Ranking"] != -1].sort_values("Ranking").head(8000)
+    print(df[df["Ranking"] == 194])
+    df = df.dropna(subset=["intensity A", "intensity B"])
+    print(df[df["Ranking"] == 194])
 
     result = deconvolute_ffc_by_lines(
         df,
@@ -944,11 +970,11 @@ if __name__ == "__main__":
         mz_tol=0.02,
     )
 
-    result["annotated"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_annotated.txt",
+    result["annotated"].to_csv(SAVE_DIR + "YPS6+_ffc_loss_annotated.txt",
                                sep="\t", index=False)
-    result["replaced"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_replaced.txt",
+    result["replaced"].to_csv(SAVE_DIR + "YPS6+_ffc_loss_replaced.txt",
                               sep="\t", index=False)
-    result["line_map"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_line_map.txt",
+    result["line_map"].to_csv(SAVE_DIR + "YPS6+_ffc_loss_line_map.txt",
                               sep="\t", index=False)
 
     print(f"Lines used:        {result['line_map']['line_id'].nunique()}")

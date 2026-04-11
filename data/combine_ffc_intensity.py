@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument("--msms_input_file", required=True, help="Path to MS/MS peak file")
     parser.add_argument("--mss_input_file", required=True, help="Path to MMS/FFC file")
     parser.add_argument("--output_file", required=True, help="Path to output file")
-    parser.add_argument("--tolerance", type=float, default=0.001, help="m/z matching tolerance")
+    parser.add_argument("--tolerance", type=float, default=0.01, help="m/z matching tolerance")
 
     args = parser.parse_args()
 

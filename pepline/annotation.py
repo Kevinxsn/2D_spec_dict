@@ -1077,10 +1077,10 @@ if __name__ == "__main__":
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
-    #OUTPUT_EXCEL = "result/6+_result.xlsx"
-    OUTPUT_EXCEL = "result/James_V1.xlsx"
-    #OUTPUT_SHEET = "KWK6+NCE20_test"
-    OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
+    OUTPUT_EXCEL = "result/6+_result.xlsx"
+    #OUTPUT_EXCEL = "result/James_V1.xlsx"
+    OUTPUT_SHEET = "YPS6+_test"
+    #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
     pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
@@ -1099,11 +1099,13 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_Neuropeptide-Z6_NCE25_170_ions_Deisotoped_FFC_Sum_Top10000"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_Neuropeptide-Z6_NCE25_170_ions_Deisotoped_FFC_Sum_Top10000"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
-    #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.CecropinA_Z6_NCE20_200_ions'
+    #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/YPS6+_ffc_loss_replaced.txt"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
@@ -1111,8 +1113,8 @@ if __name__ == "__main__":
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
-    df.columns = ["m/z A", "m/z B","Score", "Ranking"]
-    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
+    #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
+    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
     print(df.head())
     num_ffcs_total = len(df)
