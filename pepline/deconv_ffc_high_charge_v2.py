@@ -75,7 +75,6 @@ from deconv_df_intensity import (
     PROTON_MASS,
     ISOTOPE_SPACING,
     _load_lookup,
-    _find_isotopic_envelopes,
     find_closest_envelope,
     cosine_similarity,
 )
@@ -638,10 +637,47 @@ def _deconvolute_charge1_axis(
             for m in members:
                 inverse[order[m]] = g_idx
 
-        # ── Step 2: run the standard 1D envelope finder on the pool ──────
-        envelopes = _find_isotopic_envelopes(
-            unique_keys, unique_int, mz_tol=mz_tol
-        )
+        # ── Step 2: group into isotope envelopes ────────────────────────────
+        # On the charge-1 axis the only physical spacing is ~1.003 Da.
+        # Real envelopes can have missing isotopes (the middle peak
+        # wasn't captured in the FFC data), so we accept gaps that are
+        # integer multiples of the isotope spacing, up to
+        # ``max_missing + 1`` steps.  This is more tolerant than the
+        # standard ``_find_isotopic_envelopes`` (which requires strict
+        # consecutive 1/z spacing and would split an envelope at a
+        # 2-step gap).
+        ISO = 1.003355
+        max_missing = 3  # allow up to 2 missing isotopes
+
+        env_order = np.argsort(unique_keys)
+        mz_env = unique_keys[env_order]
+        int_env = unique_int[env_order]
+
+        envelopes: List[dict] = []
+        start = 0
+        for k in range(1, len(mz_env)):
+            gap = mz_env[k] - mz_env[k - 1]
+            attached = False
+            for steps in range(1, max_missing + 2):
+                if abs(gap - steps * ISO) <= mz_tol:
+                    attached = True
+                    break
+            if not attached:
+                envelopes.append({
+                    "sorted_indices": list(range(start, k)),
+                    "original_indices": env_order[start:k].tolist(),
+                    "mz_values": mz_env[start:k].tolist(),
+                    "intensities": int_env[start:k].tolist(),
+                    "charge": 1,
+                })
+                start = k
+        envelopes.append({
+            "sorted_indices": list(range(start, len(mz_env))),
+            "original_indices": env_order[start:].tolist(),
+            "mz_values": mz_env[start:].tolist(),
+            "intensities": int_env[start:].tolist(),
+            "charge": 1,
+        })
 
         # ── Step 3: refine and broadcast back to input rows ──────────────
         for env in envelopes:

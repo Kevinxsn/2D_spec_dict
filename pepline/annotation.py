@@ -1060,9 +1060,9 @@ if __name__ == "__main__":
     #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
     #PEP_SEQ = "VEADIAGHGQEVLIR"
     #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
+    PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
     #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
-    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
+    #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
     
     
     
@@ -1077,9 +1077,9 @@ if __name__ == "__main__":
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
-    OUTPUT_EXCEL = "result/6+_result.xlsx"
+    OUTPUT_EXCEL = "result/combine.xlsx"
     #OUTPUT_EXCEL = "result/James_V1.xlsx"
-    OUTPUT_SHEET = "YPS6+_test"
+    OUTPUT_SHEET = "KWK6+_test2"
     #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
@@ -1099,13 +1099,13 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
-    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_Neuropeptide-Z6_NCE25_170_ions_Deisotoped_FFC_Sum_Top10000"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_LL37-Z6_NCE33_250_ions_Deisotoped_FFC_Sum_Top1000"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
     #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/YPS6+_ffc_loss_replaced.txt"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced.txt"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     

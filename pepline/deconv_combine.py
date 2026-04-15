@@ -75,7 +75,6 @@ from deconv_df_intensity import (
     PROTON_MASS,
     ISOTOPE_SPACING,
     _load_lookup,
-    _find_isotopic_envelopes,
     find_closest_envelope,
     cosine_similarity,
 )
@@ -516,7 +515,10 @@ def _deconvolute_charge1_axis(
     mz_tol: float = 0.02,
     max_shift: Optional[int] = None,
     charges: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    bg_mz: Optional[np.ndarray] = None,
+    bg_int: Optional[np.ndarray] = None,
+    bg_charges: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[dict]]:
     """
     Deconvolute a pool of charge-1-equivalent m/z values.
 
@@ -551,28 +553,55 @@ def _deconvolute_charge1_axis(
     charge-1 transform.  Treating the two sides separately splits its
     isotope envelope and produces inconsistent monoisotopic assignments.
 
+    Background augmentation
+    -----------------------
+    When ``bg_mz``, ``bg_int``, and ``bg_charges`` are provided, each
+    envelope built from the selected FFC peaks is augmented with
+    additional peaks from the full dataset ("background") that sit at
+    integer multiples of the isotope spacing from existing envelope
+    members but were not themselves part of the selected top FFCs.
+
+    This addresses the edge case where a breakpoint has only one or
+    two FFC points on its line: the envelope shape is too sparse for
+    reliable monoisotopic selection.  By pulling in background peaks
+    at the correct spacing, we capture the true envelope shape more
+    faithfully, improving the cosine-similarity scoring.
+
+    The background peaks only affect monoisotopic selection — they do
+    NOT produce new output rows.  The output still contains only the
+    originally selected FFC rows.
+
     Parameters
     ----------
     charges : np.ndarray, optional
         Per-row precursor charge.  When provided, envelope grouping is
         done independently per charge class.  When None, all rows are
         treated as a single pool (legacy behaviour).
+    bg_mz : np.ndarray, optional
+        Charge-1-equivalent m/z values from the full dataset (background).
+    bg_int : np.ndarray, optional
+        Intensities corresponding to ``bg_mz``.
+    bg_charges : np.ndarray, optional
+        Per-value original charge for the background values.
 
-    Returns four arrays of length len(mz1_vals):
-        mono_mz1    -- monoisotopic m/z on the charge-1 axis
-        mono_mass   -- neutral monoisotopic mass
-        sim         -- isotope-envelope cosine similarity (NaN if not scored)
-        envelope_id -- 0-indexed envelope label, -1 if the peak was not
-                       placed in any envelope
+    Returns five items:
+        mono_mz1    -- monoisotopic m/z on the charge-1 axis (len == n)
+        mono_mass   -- neutral monoisotopic mass (len == n)
+        sim         -- isotope-envelope cosine similarity (len == n)
+        envelope_id -- 0-indexed envelope label, -1 if not placed (len == n)
+        envelope_members -- list of dicts (len == n), each mapping
+                            {mz_charge1: intensity} for all peaks (FFC +
+                            background) that participated in the envelope
     """
     n = len(mz1_vals)
     mono_mz1 = np.full(n, np.nan)
     mono_mass = np.full(n, np.nan)
     sim_arr = np.full(n, np.nan)
     env_id_arr = np.full(n, -1, dtype=int)
+    env_members_list: List[dict] = [{}] * n  # will be replaced per-row
 
     if n == 0:
-        return mono_mz1, mono_mass, sim_arr, env_id_arr
+        return mono_mz1, mono_mass, sim_arr, env_id_arr, env_members_list
 
     # Legacy path: no charges supplied -- treat the whole pool as one
     # class.  Preserves previous behaviour for callers that don't pass
@@ -638,15 +667,158 @@ def _deconvolute_charge1_axis(
             for m in members:
                 inverse[order[m]] = g_idx
 
-        # ── Step 2: run the standard 1D envelope finder on the pool ──────
-        envelopes = _find_isotopic_envelopes(
-            unique_keys, unique_int, mz_tol=mz_tol
-        )
+        # ── Step 2: group into isotope envelopes ────────────────────────────
+        # On the charge-1 axis the only physical spacing is ~1.003 Da.
+        # Real envelopes can have missing isotopes (the middle peak
+        # wasn't captured in the FFC data), so we accept gaps that are
+        # integer multiples of the isotope spacing, up to
+        # ``max_missing + 1`` steps.  This is more tolerant than the
+        # standard ``_find_isotopic_envelopes`` (which requires strict
+        # consecutive 1/z spacing and would split an envelope at a
+        # 2-step gap).
+        ISO = 1.003355
+        max_missing = 3  # allow up to 2 missing isotopes
 
-        # ── Step 3: refine and broadcast back to input rows ──────────────
+        env_order = np.argsort(unique_keys)
+        mz_env = unique_keys[env_order]
+        int_env = unique_int[env_order]
+
+        envelopes: List[dict] = []
+        start = 0
+        for k in range(1, len(mz_env)):
+            gap = mz_env[k] - mz_env[k - 1]
+            attached = False
+            for steps in range(1, max_missing + 2):
+                if abs(gap - steps * ISO) <= mz_tol:
+                    attached = True
+                    break
+            if not attached:
+                envelopes.append({
+                    "sorted_indices": list(range(start, k)),
+                    "original_indices": env_order[start:k].tolist(),
+                    "mz_values": mz_env[start:k].tolist(),
+                    "intensities": int_env[start:k].tolist(),
+                    "charge": 1,
+                })
+                start = k
+        envelopes.append({
+            "sorted_indices": list(range(start, len(mz_env))),
+            "original_indices": env_order[start:].tolist(),
+            "mz_values": mz_env[start:].tolist(),
+            "intensities": int_env[start:].tolist(),
+            "charge": 1,
+        })
+
+        # ── Step 2.5: augment envelopes with background peaks ───────────
+        # When bg_mz/bg_int/bg_charges are provided, we look for
+        # peaks in the full dataset that sit at integer multiples of
+        # the isotope spacing from existing envelope members (on the
+        # charge-1 axis) but were not already part of the selected
+        # top FFCs.  These extra peaks improve the envelope shape for
+        # the cosine-similarity scoring without adding new output rows.
+        #
+        # For each charge class c, we transform all background values
+        # at charge c to the charge-1 axis and check for matches.
+
+        # Determine the charge value for this class.
+        if charges is not None:
+            class_charge = int(charges[class_rows[0]])
+        else:
+            class_charge = 1  # legacy fallback
+
+        # Precompute background charge-1 values for this charge class.
+        bg_mz1_class = None
+        bg_int_class = None
+        if (bg_mz is not None and bg_int is not None
+                and bg_charges is not None):
+            bg_mask = np.asarray(bg_charges, dtype=int) == class_charge
+            if bg_mask.any():
+                bg_mz_raw = np.asarray(bg_mz, dtype=float)[bg_mask]
+                bg_int_raw = np.asarray(bg_int, dtype=float)[bg_mask]
+                # Transform to charge-1 axis
+                bg_mz1_class = class_charge * bg_mz_raw - (class_charge - 1) * PROTON_MASS
+                bg_int_class = bg_int_raw
+
         for env in envelopes:
+            env_mz = np.asarray(env["mz_values"], dtype=float)
+            env_int = np.asarray(env["intensities"], dtype=float)
+
+            if bg_mz1_class is not None and len(bg_mz1_class) > 0:
+                # Find the m/z range the envelope spans on the charge-1
+                # axis, extended by up to (max_missing+1) isotope steps
+                # on each side to catch flanking background peaks.
+                extend = (max_missing + 1) * ISO
+                env_lo = env_mz.min() - extend
+                env_hi = env_mz.max() + extend
+
+                # Candidate background peaks within the extended range.
+                cand_mask = (bg_mz1_class >= env_lo) & (bg_mz1_class <= env_hi)
+                cand_mz = bg_mz1_class[cand_mask]
+                cand_int = bg_int_class[cand_mask]
+
+                if len(cand_mz) > 0:
+                    # For each candidate, check if it is at an integer
+                    # multiple of the isotope spacing from ANY existing
+                    # envelope member AND is not already present in the
+                    # envelope (within merge_tol).
+                    new_mz_list = []
+                    new_int_list = []
+                    for c_mz, c_int in zip(cand_mz, cand_int):
+                        # Skip if already in the envelope.
+                        if np.any(np.abs(env_mz - c_mz) <= merge_tol):
+                            continue
+                        # Check spacing from any existing member.
+                        for ref_mz in env_mz:
+                            delta_da = abs(c_mz - ref_mz)
+                            # Closest integer number of isotope steps
+                            n_steps = round(delta_da / ISO)
+                            if n_steps >= 1 and abs(delta_da - n_steps * ISO) <= mz_tol:
+                                new_mz_list.append(c_mz)
+                                new_int_list.append(c_int)
+                                break
+
+                    if new_mz_list:
+                        # Deduplicate the newly found background peaks
+                        # (multiple envelope members may match the same
+                        # background peak).
+                        new_mz_arr = np.array(new_mz_list)
+                        new_int_arr = np.array(new_int_list)
+                        dedup_order = np.argsort(new_mz_arr)
+                        new_mz_arr = new_mz_arr[dedup_order]
+                        new_int_arr = new_int_arr[dedup_order]
+                        keep = [0]
+                        for kk in range(1, len(new_mz_arr)):
+                            if new_mz_arr[kk] - new_mz_arr[keep[-1]] > merge_tol:
+                                keep.append(kk)
+                            else:
+                                # Keep the higher-intensity duplicate
+                                if new_int_arr[kk] > new_int_arr[keep[-1]]:
+                                    keep[-1] = kk
+                        new_mz_arr = new_mz_arr[keep]
+                        new_int_arr = new_int_arr[keep]
+
+                        # Merge into envelope for scoring.
+                        env_mz = np.concatenate([env_mz, new_mz_arr])
+                        env_int = np.concatenate([env_int, new_int_arr])
+                        re_order = np.argsort(env_mz)
+                        env_mz = env_mz[re_order]
+                        env_int = env_int[re_order]
+
+            # Store the augmented envelope for the members dict.
+            augmented_env = {
+                "mz_values": env_mz.tolist(),
+                "intensities": env_int.tolist(),
+                "charge": 1,
+            }
+            # Build the members dict {mz: intensity} for this envelope.
+            members_dict = {
+                round(float(m), 4): round(float(i), 2)
+                for m, i in zip(env_mz, env_int)
+            }
+
+            # ── Step 3: refine using the (possibly augmented) envelope ──
             mono_mz_v, mono_mass_v, _z, sim = _refine_monoisotopic_by_cosine(
-                env, mono_lookup, env_lookup, max_shift=max_shift,
+                augmented_env, mono_lookup, env_lookup, max_shift=max_shift,
             )
             for unique_idx in env["original_indices"]:
                 # Rows (within this charge class) that map to this peak
@@ -656,9 +828,11 @@ def _deconvolute_charge1_axis(
                 mono_mass[global_rows] = mono_mass_v
                 sim_arr[global_rows] = sim
                 env_id_arr[global_rows] = next_env_id
+                for gr in global_rows:
+                    env_members_list[gr] = members_dict
             next_env_id += 1
 
-    return mono_mz1, mono_mass, sim_arr, env_id_arr
+    return mono_mz1, mono_mass, sim_arr, env_id_arr, env_members_list
 
 
 def _deconvolute_pooled(
@@ -672,6 +846,9 @@ def _deconvolute_pooled(
     max_shift: Optional[int] = None,
     charge_a: Optional[np.ndarray] = None,
     charge_b: Optional[np.ndarray] = None,
+    bg_mz: Optional[np.ndarray] = None,
+    bg_int: Optional[np.ndarray] = None,
+    bg_charges: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, ...]:
     """
     Pool the charge-1-equivalent values from both sides of the FFC table
@@ -689,9 +866,14 @@ def _deconvolute_pooled(
     both land near 458.31 after the transform, but they are separate
     observations).
 
-    Returns eight arrays (one set of four per side):
-        mono_mz1_a, mono_mass_a, sim_a, env_id_a,
-        mono_mz1_b, mono_mass_b, sim_b, env_id_b
+    When ``bg_mz``, ``bg_int``, and ``bg_charges`` are provided, each
+    envelope is augmented with background peaks from the full dataset
+    that sit at correct isotope spacing from existing members.  This
+    improves monoisotopic selection for sparse envelopes.
+
+    Returns ten items (one set of five per side):
+        mono_mz1_a, mono_mass_a, sim_a, env_id_a, env_members_a,
+        mono_mz1_b, mono_mass_b, sim_b, env_id_b, env_members_b
     """
     n_a = len(mz1_a)
 
@@ -706,19 +888,24 @@ def _deconvolute_pooled(
     else:
         pooled_charge = None
 
-    pooled_mono_mz, pooled_mono_mass, pooled_sim, pooled_env = (
+    pooled_mono_mz, pooled_mono_mass, pooled_sim, pooled_env, pooled_members = (
         _deconvolute_charge1_axis(
             pooled_mz, pooled_int, mono_lookup, env_lookup,
             mz_tol=mz_tol, max_shift=max_shift,
             charges=pooled_charge,
+            bg_mz=bg_mz,
+            bg_int=bg_int,
+            bg_charges=bg_charges,
         )
     )
 
     return (
         pooled_mono_mz[:n_a], pooled_mono_mass[:n_a],
         pooled_sim[:n_a], pooled_env[:n_a],
+        pooled_members[:n_a],
         pooled_mono_mz[n_a:], pooled_mono_mass[n_a:],
         pooled_sim[n_a:], pooled_env[n_a:],
+        pooled_members[n_a:],
     )
 
 
@@ -743,14 +930,35 @@ def deconvolute_ffc_by_lines(
     parental_tol: float = 1e-6,
     mz_tol: float = 0.02,
     max_shift: Optional[int] = None,
+    top_selected: int = 2000,
+    top_bg: int = 8000,
+    ranking_col: str = "Ranking",
 ) -> Dict[str, pd.DataFrame]:
     """
     Full FFC-line-based deconvolution.
 
+    The caller supplies the complete FFC DataFrame (all rankings).  Two
+    cutoff parameters control which rows play which role:
+
+    * ``top_selected`` (default 2000): only the top-ranked FFCs up to
+      this cutoff are deconvoluted and appear in the output.
+    * ``top_bg`` (default 8000): the top-ranked FFCs up to this cutoff
+      provide the m/z + intensity pool used for background envelope
+      augmentation during monoisotopic selection.  Must be
+      >= ``top_selected``.
+
+    Line finding runs on the ``top_bg`` set (the larger pool) so that
+    lines with many supporting points are detected even if only a few
+    fall inside the ``top_selected`` subset.  Then only FFC points that
+    are both (a) within ``top_selected`` and (b) assigned to a detected
+    line are deconvoluted and returned.
+
     Parameters
     ----------
     df : DataFrame
-        Input FFC table.  Must contain ``mz_col_a`` and ``mz_col_b``.
+        Full FFC table.  Must contain ``mz_col_a``, ``mz_col_b``, and
+        ``ranking_col``.  Rows with ``ranking_col == -1`` are dropped
+        automatically (sentinel for unranked entries).
     parent_charge : int
         Charge state of the precursor (only lines with i + j == this
         value are used).
@@ -759,16 +967,14 @@ def deconvolute_ffc_by_lines(
     expected_offsets : list of float
         Allowed Parent+X offsets to look for, in Da.  Detected lines
         whose Parent+X is not within ``offset_tol`` of one of these
-        values are discarded.  Mirrors the ``target_masses`` list in
-        ``annotation.select_best_partition``.
+        values are discarded.
     intensity_col_a, intensity_col_b : str, optional
         Per-peak intensity columns.  If absent, uniform intensities are
-        used (envelope grouping still works; monoisotopic shape scoring
-        becomes less informative).
+        used.
     theo_patt_path : str, optional
         Path to TopPIC theo_patt.txt for monoisotopic refinement.
     line_delta : float
-        Clustering gap for line detection (Da, on the i*x + j*y axis).
+        Clustering gap for line detection (Da).
     min_cluster_size : int
         Minimum points per line.
     offset_tol : float
@@ -776,20 +982,20 @@ def deconvolute_ffc_by_lines(
         ``expected_offsets`` list.
     parental_offset : float
         Which entry of ``expected_offsets`` is the parental line.
-        Defaults to 0.0 (the precursor itself).
     parental_tol : float
-        Tolerance for identifying a line as parental within the kept
-        set.  Defaults to a tight value because ``matched_offset`` has
-        already been snapped to one of the discrete expected values.
+        Tolerance for identifying a line as parental.
     mz_tol : float
         Isotope-spacing tolerance on the charge-1-equivalent axis.
     max_shift : int, optional
-        Maximum number of isotope steps to consider when picking the
-        monoisotopic shift via cosine similarity.  If None (default),
-        the bound is auto-scaled with anchor mass as
-        ``floor(anchor_mass / 1500) + 2``, which gives 2 for ~1 kDa
-        fragments and ~5 for ~5 kDa fragments.  Override if your
-        molecules have unusual envelope shapes.
+        Maximum number of isotope steps for monoisotopic selection.
+    top_selected : int
+        Number of top-ranked FFCs to deconvolute and return.
+    top_bg : int
+        Number of top-ranked FFCs whose m/z + intensity values serve as
+        the background pool for envelope augmentation.  Must be
+        >= ``top_selected``.
+    ranking_col : str
+        Column used for ranking (lower value = higher rank).
 
     Returns
     -------
@@ -799,12 +1005,36 @@ def deconvolute_ffc_by_lines(
         raise KeyError(
             f"Input df must contain columns {mz_col_a!r} and {mz_col_b!r}"
         )
+    if ranking_col not in df.columns:
+        raise KeyError(
+            f"Input df must contain ranking column {ranking_col!r}"
+        )
+    if top_bg < top_selected:
+        raise ValueError(
+            f"top_bg ({top_bg}) must be >= top_selected ({top_selected})"
+        )
 
-    work = df.reset_index(drop=True).copy()
+    # ── Prepare the two tiers ─────────────────────────────────────────────
+    full = df[df[ranking_col] != -1].sort_values(ranking_col).copy()
+    full = full.dropna(subset=[mz_col_a, mz_col_b])
+    if intensity_col_a:
+        full = full.dropna(subset=[intensity_col_a])
+    if intensity_col_b:
+        full = full.dropna(subset=[intensity_col_b])
 
-    # ── Step 1: find lines ────────────────────────────────────────────────
+    bg_df = full.head(top_bg).reset_index(drop=True)
+    selected_df = full.head(top_selected).reset_index(drop=True)
+
+    # We need to know, for each row in bg_df, whether it belongs to the
+    # selected subset.  Since both are sorted by ranking and head-sliced,
+    # the first top_selected rows of bg_df ARE the selected rows.
+    n_selected = len(selected_df)
+    # bg_df may be shorter than top_bg if the data has fewer rows.
+    # selected_df may be shorter than top_selected for the same reason.
+
+    # ── Step 1: find lines on the FULL bg_df ──────────────────────────────
     lines = find_charge_lines(
-        work,
+        bg_df,
         parent_charge=parent_charge,
         parent_mass=parent_mass,
         expected_offsets=expected_offsets,
@@ -821,6 +1051,13 @@ def deconvolute_ffc_by_lines(
         parental_offset=parental_offset,
         parental_tol=parental_tol,
     )
+
+    if not assignments:
+        empty = pd.DataFrame()
+        return {"annotated": empty, "replaced": empty, "line_map": empty}
+
+    # ── Filter assignments to only those within top_selected ──────────────
+    assignments = [a for a in assignments if a.ffc_index < n_selected]
 
     if not assignments:
         empty = pd.DataFrame()
@@ -843,8 +1080,9 @@ def deconvolute_ffc_by_lines(
         )
     line_map_df = pd.DataFrame(line_map_rows)
 
-    # Join with the original FFC rows.
-    base = work.iloc[line_map_df["ffc_index"].values].reset_index(drop=True)
+    # Join with the original FFC rows (from selected_df, indexed into bg_df
+    # which shares the same first n_selected rows).
+    base = bg_df.iloc[line_map_df["ffc_index"].values].reset_index(drop=True)
     annotated = pd.concat(
         [base, line_map_df.reset_index(drop=True).drop(columns=["ffc_index"])],
         axis=1,
@@ -874,8 +1112,43 @@ def deconvolute_ffc_by_lines(
     else:
         int_b = np.ones(len(annotated), dtype=float)
 
-    (mono_mz1_a, mono_mass_a, sim_a, env_id_a,
-     mono_mz1_b, mono_mass_b, sim_b, env_id_b) = _deconvolute_pooled(
+    # ── Build background peak arrays from bg_df ──────────────────────────
+    all_charges = np.unique(np.concatenate([
+        annotated["i"].values.astype(int),
+        annotated["j"].values.astype(int),
+    ]))
+    bg_mz_parts = []
+    bg_int_parts = []
+    bg_charge_parts = []
+
+    full_mz_a = bg_df[mz_col_a].values.astype(float)
+    full_mz_b = bg_df[mz_col_b].values.astype(float)
+    if intensity_col_a and intensity_col_a in bg_df.columns:
+        full_int_a = bg_df[intensity_col_a].values.astype(float)
+    else:
+        full_int_a = np.ones(len(bg_df), dtype=float)
+    if intensity_col_b and intensity_col_b in bg_df.columns:
+        full_int_b = bg_df[intensity_col_b].values.astype(float)
+    else:
+        full_int_b = np.ones(len(bg_df), dtype=float)
+
+    # Pool both columns of the background dataset.
+    all_bg_mz = np.concatenate([full_mz_a, full_mz_b])
+    all_bg_int = np.concatenate([full_int_a, full_int_b])
+
+    # For each charge, replicate the background with that charge label
+    # so the downstream code can transform to charge-1 axis.
+    for z in all_charges:
+        bg_mz_parts.append(all_bg_mz)
+        bg_int_parts.append(all_bg_int)
+        bg_charge_parts.append(np.full(len(all_bg_mz), z, dtype=int))
+
+    bg_mz_arr = np.concatenate(bg_mz_parts)
+    bg_int_arr = np.concatenate(bg_int_parts)
+    bg_charge_arr = np.concatenate(bg_charge_parts)
+
+    (mono_mz1_a, mono_mass_a, sim_a, env_id_a, env_members_a,
+     mono_mz1_b, mono_mass_b, sim_b, env_id_b, env_members_b) = _deconvolute_pooled(
         annotated["mz1_A"].values.astype(float),
         annotated["mz1_B"].values.astype(float),
         int_a, int_b,
@@ -883,6 +1156,9 @@ def deconvolute_ffc_by_lines(
         max_shift=max_shift,
         charge_a=annotated["i"].values.astype(int),
         charge_b=annotated["j"].values.astype(int),
+        bg_mz=bg_mz_arr,
+        bg_int=bg_int_arr,
+        bg_charges=bg_charge_arr,
     )
 
     annotated["charge_A"] = annotated["i"]
@@ -895,16 +1171,19 @@ def deconvolute_ffc_by_lines(
     annotated["monoisotopic_mass_B"] = np.round(mono_mass_b, 4)
     annotated["isotope_similarity_A"] = np.round(sim_a, 4)
     annotated["isotope_similarity_B"] = np.round(sim_b, 4)
+    # Envelope members: {charge1_mz: intensity} for all peaks (selected +
+    # background) that contributed to the envelope used for scoring.
+    annotated["envelope_members_A"] = [
+        str(d) for d in env_members_a
+    ]
+    annotated["envelope_members_B"] = [
+        str(d) for d in env_members_b
+    ]
 
     # ── Step 5: build the "replaced" view ─────────────────────────────────
-    # Replace m/z A and m/z B with the monoisotopic m/z at the ORIGINAL
-    # charge state (mass/z + proton).  Same shape & columns as the input
-    # df, plus line_id appended for traceability.
     replaced = base.copy()
     replaced[mz_col_a] = annotated["monoisotopic_mass_A"].values / annotated["charge_A"] + PROTON_MASS
     replaced[mz_col_b] = annotated["monoisotopic_mass_B"].values / annotated["charge_B"] + PROTON_MASS
-    #replaced["charge_A"] = annotated["charge_A"].values
-    #replaced["charge_B"] = annotated["charge_B"].values
     replaced["line_id"] = annotated["line_id"].values
 
     return {
@@ -950,10 +1229,6 @@ if __name__ == "__main__":
         "m/z A", "m/z B", "Covariance", "Partial Cov.",
         "Score", "Ranking", "intensity A", "intensity B",
     ]
-    df = df[df["Ranking"] != -1].sort_values("Ranking").head(8000)
-    print(df[df["Ranking"] == 194])
-    df = df.dropna(subset=["intensity A", "intensity B"])
-    print(df[df["Ranking"] == 194])
 
     result = deconvolute_ffc_by_lines(
         df,
@@ -968,13 +1243,16 @@ if __name__ == "__main__":
         offset_tol=0.05,
         parental_offset=0.0,
         mz_tol=0.02,
+        top_selected=2000,
+        top_bg=8000,
+        ranking_col="Ranking",
     )
 
-    result["annotated"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_annotated.txt",
+    result["annotated"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_annotated.txt",
                                sep="\t", index=False)
-    result["replaced"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_replaced.txt",
+    result["replaced"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_replaced.txt",
                               sep="\t", index=False)
-    result["line_map"].to_csv(SAVE_DIR + "KWK6+NCE20_ffc_loss_line_map.txt",
+    result["line_map"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_line_map.txt",
                               sep="\t", index=False)
 
     print(f"Lines used:        {result['line_map']['line_id'].nunique()}")
