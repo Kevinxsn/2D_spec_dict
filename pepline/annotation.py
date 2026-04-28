@@ -1059,27 +1059,80 @@ if __name__ == "__main__":
     # ── Configuration ─────────────────────────────────────────────────────
     #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
     #PEP_SEQ = "VEADIAGHGQEVLIR"
+    #PEP_SEQ = "YLEFISDAIIHVLHSK"
+    #PEP_SEQ = "HGTVVLTALGGILK"
     #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
+    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
     #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
-    #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
+    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
     
     
     
     CHARGE = 6
     ISO_RANGE = 6
-    TOP_N = 2000
-    MASS_THRESHOLD = 0.1
+    TOP_N = 1000
+    MASS_THRESHOLD = 0.5
     #LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
     #LOSS_LIST = [-1, -2, -3, -4, 0, 346.151, 347.163, 345.133]
-    LOSS_LIST = [-1, -2, -3, -4, -5, -6, 0]
+    #LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 99.065, 100.069]
+    #LOSS_LIST = [-1, -2, 0, 276.1440, 277.1460, 113.0785, 26.9880]
+    #LOSS_LIST = [-1, -2, 0, 113.083, 112.080, 18.006, 114.086]
+    #LOSS_LIST = [-1, -2, 0, -3, -4, 345.1410, 346.1430, 344.1370, 14.9770, 13.9760, 347.1470]
+    #LOSS_LIST = [-1, -2, 0, -3, 223.1455, 224.1505, 222.1420, 110.0600, 241.1700, 242.1580]
+    #LOSS_LIST = [-1, -2, 0, -3, -4,15.0080,16.0005, 914.5350, 913.5320]
+    LOSS_LIST = [-1, -2, 0, -3, -4, 161.0390, 14.9970, 16.0020, 162.0400, 259.0970, 260.1000]
+    
+    COLUMN_ANNOTATIONS = {
+    "parent": "0.002388",
+    1: "0.001692",
+    2: "0.001986",
+    3: "0.001452",
+    4: "0.001570",
+    5: "0.00",
+    6: "0.00",
+    -229.112: "0.0017",
+    -228.109:"0.0018",
+    -99.065: "0.000173",
+    -100.069:"0.000199", 
+    -113.0785:"0.000998",
+    -276.1440:"0.002023",
+    -277.1460:"0.004119",
+    -26.9880:"0.007049",
+    -113.083:"0.001148",
+    -112.080:"0.001862",
+    -18.006:"0.001105",
+    -114.086:"0.001035",
+    -345.1410:"0.001458",
+    -346.1430:"0.001967",
+    -344.1370:"0.004634",
+    -347.1470:"0.003197",
+    -14.9770:"0.002888",
+    -13.9760:"0.006366",
+    -223.1455:"0.007473",
+    -224.1505:"0.007756",
+    -222.1420:"0.002582",
+    -110.0600:"0.002019",
+    -241.1700:"0.004770",
+    -242.1580:"0.001349",
+    -15.0080:"0.001282",
+    -16.0005: "0.002647",
+    -914.5350:"0.000961",
+    -913.5320:"0.001052",
+    -161.0390:"0.001340",
+    -14.9970:"0.006422",
+    -16.0020:"0.000900",
+    -162.0400:"0.000454",
+    -259.0970:"0.002471",
+    -260.1000:"0.001784"
+    }
     
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
-    OUTPUT_EXCEL = "result/combine.xlsx"
+    OUTPUT_EXCEL = "result/all.xlsx"
     #OUTPUT_EXCEL = "result/James_V1.xlsx"
-    OUTPUT_SHEET = "KWK6+_test2"
+    #OUTPUT_SHEET = f"VEA3+_{TOP_N}"
+    OUTPUT_SHEET = "YPS6+"
     #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
@@ -1096,7 +1149,10 @@ if __name__ == "__main__":
         "Covariance_Data.Neuropeptide_z7_611_dm2_NCE25"
     )
     '''
-    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
+    
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/HAD4+_with_intensity"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/HGT3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_LL37-Z6_NCE33_250_ions_Deisotoped_FFC_Sum_Top1000"
@@ -1105,16 +1161,16 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
     #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced.txt"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
     
-    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
     #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
-    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
+    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
     print(df.head())
     num_ffcs_total = len(df)
@@ -1127,10 +1183,13 @@ if __name__ == "__main__":
     df = df[df['Ranking'] <= TOP_N]
 
     print("Top rows:")
+    print(df.shape)
     print(df.head())
 
     # ── Partition by charge ───────────────────────────────────────────────
     partitioned, partition_names = partition_dataframe_by_charge(df, [CHARGE, CHARGE - 1])
+    partitioned.to_csv('partitioned.csv')
+    print(partitioned.shape)
 
     # ── Annotate each loss line ───────────────────────────────────────────
     annotated_frames = []
@@ -1153,7 +1212,7 @@ if __name__ == "__main__":
         .sort_values("Ranking")
     )
     print(df_all)
-    #df_all.to_csv(OUTPUT_CSV_DETAIL)
+    df_all.to_csv(OUTPUT_CSV_DETAIL)
 
     # ── Build coverage table ──────────────────────────────────────────────
     cov_table = coverage_table(df_all, LOSS_LIST, pep, ISO_RANGE)
@@ -1196,16 +1255,7 @@ if __name__ == "__main__":
     # Provide a dict mapping original column names → parenthesised info.
     # Example: threshold, p-value, or any parameter you want displayed.
     
-    COLUMN_ANNOTATIONS = {
-    "parent": "0.02",
-    1: "0.05",
-    2: "0.03",
-    3: "0.04",
-    4: "0.06",
-    5: "0.03",
-    6: "0.04",
-    -300: "0.05",
-    }
+
 
     final_df = rename_loss_columns(final_df, COLUMN_ANNOTATIONS)
 

@@ -523,16 +523,22 @@ if __name__ == "__main__":
         "Covariance Scoring Tables 10000 Scans.xlsx"
     )
     SHEET_NAME = "VEADIAGHGQEVLIR-mz536-3_cov"
-    PARENT_CHARGE = 3
-    PARENT_MASS = 1608.87   # neutral mass of precursor
-    TOP_N = 100
+    PARENT_CHARGE = 6
+    #PARENT_MASS = 1608.87   # neutral mass of precursor
+    #PARENT_MASS = 1887.036239
+    #PARENT_MASS = 1380.85609
+    #PARENT_MASS = 3766.83688
+    #PARENT_MASS = 4494.60433
+    #PARENT_MASS = 4007.4216300000007
+    PARENT_MASS = 4275.1248 
+    TOP_N = 1000
     DELTA = 0.01
     MIN_CLUSTER_SIZE = 3
     
 
     # ── Load & prepare ────────────────────────────────────────────────────
     #ffc_df = load_ffc_excel(EXCEL_PATH, SHEET_NAME)
-    data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3+_replaced.txt'
+    data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
     ffc_df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
