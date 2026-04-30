@@ -1062,9 +1062,9 @@ if __name__ == "__main__":
     #PEP_SEQ = "YLEFISDAIIHVLHSK"
     #PEP_SEQ = "HGTVVLTALGGILK"
     #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
+    PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
     #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
-    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
+    #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
     
     
     
@@ -1129,10 +1129,11 @@ if __name__ == "__main__":
 
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
-    OUTPUT_EXCEL = "result/all.xlsx"
+    #OUTPUT_EXCEL = "result/all.xlsx"
+    OUTPUT_EXCEL = "result/deconv6+_result.xlsx"
     #OUTPUT_EXCEL = "result/James_V1.xlsx"
     #OUTPUT_SHEET = f"VEA3+_{TOP_N}"
-    OUTPUT_SHEET = "YPS6+"
+    OUTPUT_SHEET = "KWK6+_test4"
     #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
@@ -1150,7 +1151,7 @@ if __name__ == "__main__":
     )
     '''
     
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/HAD4+_with_intensity"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/HGT3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
@@ -1161,16 +1162,16 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
     #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
-    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced.txt"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced_test.txt"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
     
-    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
     #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
-    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
+    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
     print(df.head())
     num_ffcs_total = len(df)

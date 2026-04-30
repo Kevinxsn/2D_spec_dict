@@ -1242,17 +1242,17 @@ if __name__ == "__main__":
         min_cluster_size=2,
         offset_tol=0.05,
         parental_offset=0.0,
-        mz_tol=0.02,
+        mz_tol=0.005,
         top_selected=2000,
         top_bg=8000,
         ranking_col="Ranking",
     )
 
-    result["annotated"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_annotated.txt",
+    result["annotated"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_annotated_test.txt",
                                sep="\t", index=False)
-    result["replaced"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_replaced.txt",
+    result["replaced"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_replaced_test.txt",
                               sep="\t", index=False)
-    result["line_map"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_line_map.txt",
+    result["line_map"].to_csv(SAVE_DIR + "KWK6+NCE20_combine_line_map_test.txt",
                               sep="\t", index=False)
 
     print(f"Lines used:        {result['line_map']['line_id'].nunique()}")
