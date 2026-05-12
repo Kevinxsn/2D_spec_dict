@@ -500,14 +500,15 @@ if __name__ =='__main__':
     candidates = [correct]
     
     amino_acid_masses_switch = {v: k for k, v in amino_acid_masses_merge.items()}
-    '''
+    
     visualize_all_paths(lower_half, spurious_masses=[938.464043*3-1, 953.522196-1], 
                          candidate_paths=candidates, 
                          correct_path=correct, 
                          aa_map=amino_acid_masses_switch,
                          title = pep_seq,
                          pep_mass=pep.seq_mass + 18.01056,
-                         save_path='/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/4_gaped+.png'
+                         #save_path='/Users/kevinmbp/Desktop/2D_spec_dict/anti_symmetric/4_gaped+.png'
+                         save_path=None
                          )
-    '''
+    
     print()

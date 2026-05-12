@@ -12,60 +12,59 @@ The "annotated" DataFrame provides everything we need:
     ``monoisotopic_mass_A/B``
         Neutral monoisotopic masses produced by the deconvolution
         pipeline.  These are the fragment neutral masses that we
-        match against theoretical b/y ions.  Computed inside
-        deconv_combine as::
-
-            mono_mass = charge * (mono_mz_charge1 − proton_mass)
+        match against theoretical b/y ions.
 
     ``charge_A/B`` (equivalently ``i/j``)
         Charge assignments from line geometry.
 
-    ``deconvoluted_mz_A/B``
-        Monoisotopic m/z on the **charge-1 axis** (singly protonated).
+After deconvolution, multiple original FFCs may collapse to the same
+(m1, m2) pair.  We **deduplicate** by keeping only the row with the
+best (lowest) ranking for each unique (m1, m2).
 
-The "replaced" DataFrame back-converts to monoisotopic m/z at the
-**original charge**::
+Annotation consolidation
+-------------------------
+Each neutral mass can in principle match either a b-ion or a y-ion.
+Rather than reporting four independent columns (m1_b, m1_y, m2_b, m2_y),
+we consolidate into a single **b** and a single **y** assignment per FFC
+using the convention:
 
-    replaced["m/z A"] = monoisotopic_mass_A / charge_A + proton_mass
+    * **m2 → y** when m2 matches a y-ion (preferred y source)
+    * **m1 → b** when m1 matches a b-ion (preferred b source)
+    * If the preferred column is empty but the *other* side has that ion
+      type, we fall back: m1's y-match or m2's b-match.
+    * If neither side matches a given ion type, leave it as None.
 
-For the Annotation Table we report:
-
-    * **X, Y (m/z)**: the deconvolved monoisotopic m/z at the original
-      charge state, i.e. ``monoisotopic_mass / charge + proton``.
-    * **m1, m2 (neutral)**: directly from ``monoisotopic_mass_A/B``.
-    * **TFFC(m1, m2)**: same as m1, m2 (already neutral).
-    * b/y matching is done on the neutral masses m1, m2.
-
-Per-FFC row information
------------------------
-    X  (deconvolved m/z at original charge)
-    Y  (deconvolved m/z at original charge)
-    (i, j)         – estimated charges of X and Y
-    TFFC (m1, m2)  – neutral monoisotopic masses from deconvolution
-    m1-annotation  – (b(m1), shift_b(m1), y(m1), shift_y(m1))
-    m2-annotation  – (b(m2), shift_b(m2), y(m2), shift_y(m2))
-    b/y count      – number of b/y-masses among m1, m2 (0–2)
+Per-FFC row (output columns)
+-----------------------------
+    X (m/z)       – deconvolved monoisotopic m/z at original charge
+    Y (m/z)       – deconvolved monoisotopic m/z at original charge
+    i, j          – charge assignments
+    m1 (neutral)  – neutral monoisotopic mass (A side)
+    m2 (neutral)  – neutral monoisotopic mass (B side)
+    b             – best b-ion assignment (e.g. 'b5')
+    shift_b       – deviation from theoretical b-ion (Da)
+    y             – best y-ion assignment (e.g. 'y7')
+    shift_y       – deviation from theoretical y-ion (Da)
+    b/y_count     – how many of {m1, m2} match any b or y ion (0–2)
+    Ranking       – best FFC ranking for this (m1, m2) pair
 
 Ranks matrix
 ------------
     A 3 × (|P|−1) matrix *Ranks* where:
-        Ranks(1, r) = min rank of FFC(X,Y) s.t. X or Y is a b_r mass
-        Ranks(2, r) = min rank of FFC(X,Y) s.t. X or Y is a y_{|P|−r} mass
-        Ranks(3, r) = min rank of FFC(X,Y) s.t. one of X,Y is b_r
+        Ranks(1, r) = min rank of FFC s.t. m1 or m2 is a b_r mass
+        Ranks(2, r) = min rank of FFC s.t. m1 or m2 is a y_{|P|−r} mass
+        Ranks(3, r) = min rank of FFC s.t. one of (m1, m2) is b_r
                       AND the other is y_{|P|−r}
 
 Usage
 -----
-    from annotation_table import build_annotation_table
-
-    # pep: a peptide.Pep object
-    # df:  the "annotated" DataFrame from deconv_combine output
+    from deconv_annotation_table import build_annotation_table
     table, ranks = build_annotation_table(df, pep, threshold=0.5)
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -160,11 +159,12 @@ def _annotate_ffc_rows(
     ranking_col: str,
 ) -> pd.DataFrame:
     """
-    For each FFC row, read deconvolved neutral masses and annotate.
-
-    Uses ``monoisotopic_mass_A/B`` directly as the neutral fragment
-    masses (m1, m2).  X and Y are reported as the deconvolved m/z at
-    the original charge: ``mono_mass / charge + proton``.
+    For each FFC row:
+      1. Read deconvolved neutral masses.
+      2. Match each neutral mass against theoretical b/y ions.
+      3. Consolidate: m1 → b (preferred), m2 → y (preferred),
+         with fallback to the other side.
+      4. Deduplicate: keep only the best ranking per unique (m1, m2).
     """
     neutral_table = _build_neutral_mass_table(pep)
 
@@ -176,16 +176,36 @@ def _annotate_ffc_rows(
         j = int(row[charge_col_b])
         ranking = int(row[ranking_col]) if pd.notna(row[ranking_col]) else -1
 
-        # Deconvolved m/z at original charge (same formula as
-        # deconv_combine's "replaced" output)
+        # Deconvolved m/z at original charge
         x_mz = m1 / i + PROTON_MASS
         y_mz = m2 / j + PROTON_MASS
 
-        # Annotate each neutral mass against theoretical b/y
+        # Raw b/y match for each neutral mass
         ann1 = _find_best_b_and_y(m1, neutral_table, threshold)
         ann2 = _find_best_b_and_y(m2, neutral_table, threshold)
 
-        # b/y count: how many of m1, m2 are identified as a b or y mass
+        # ── Consolidate b/y assignment ───────────────────────────────
+        # Convention: m1 (A side) is the preferred b source,
+        #             m2 (B side) is the preferred y source.
+        # Fall back to the other side if the preferred is empty.
+
+        # b-ion: prefer m1's b, fall back to m2's b
+        if ann1["b_name"] is not None:
+            b_name, b_shift = ann1["b_name"], ann1["b_shift"]
+        elif ann2["b_name"] is not None:
+            b_name, b_shift = ann2["b_name"], ann2["b_shift"]
+        else:
+            b_name, b_shift = None, None
+
+        # y-ion: prefer m2's y, fall back to m1's y
+        if ann2["y_name"] is not None:
+            y_name, y_shift = ann2["y_name"], ann2["y_shift"]
+        elif ann1["y_name"] is not None:
+            y_name, y_shift = ann1["y_name"], ann1["y_shift"]
+        else:
+            y_name, y_shift = None, None
+
+        # b/y count: how many of (m1, m2) match *any* b or y mass
         by_count = 0
         if ann1["b_name"] is not None or ann1["y_name"] is not None:
             by_count += 1
@@ -199,19 +219,25 @@ def _annotate_ffc_rows(
             "j": j,
             "m1 (neutral)": round(m1, 4),
             "m2 (neutral)": round(m2, 4),
-            "m1_b": ann1["b_name"],
-            "m1_shift_b": ann1["b_shift"],
-            "m1_y": ann1["y_name"],
-            "m1_shift_y": ann1["y_shift"],
-            "m2_b": ann2["b_name"],
-            "m2_shift_b": ann2["b_shift"],
-            "m2_y": ann2["y_name"],
-            "m2_shift_y": ann2["y_shift"],
+            "b": b_name,
+            "shift_b": b_shift,
+            "y": y_name,
+            "shift_y": y_shift,
             "b/y_count": by_count,
             "Ranking": ranking,
         })
 
-    return pd.DataFrame(records)
+    result = pd.DataFrame(records)
+
+    # ── Deduplicate: keep best ranking per unique (m1, m2) ───────────
+    result = (
+        result
+        .sort_values("Ranking")
+        .drop_duplicates(subset=["m1 (neutral)", "m2 (neutral)"], keep="first")
+        .reset_index(drop=True)
+    )
+
+    return result
 
 
 # =============================================================================
@@ -227,17 +253,14 @@ def _compute_ranks_matrix(
     Build the 3 × (|P|−1) Ranks matrix.
 
     For each cleavage site r = 1, ..., |P|−1:
-        Row "b_r":         min ranking of any FFC where m1 or m2
-                           matches b_r neutral mass (within threshold)
-        Row "y_{|P|-r}":   min ranking of any FFC where m1 or m2
-                           matches y_{|P|−r} neutral mass
-        Row "b_r & y_{|P|-r}": min ranking of any FFC where one of
-                           (m1, m2) is b_r and the other is y_{|P|−r}
+        Row "b_r":             min ranking where m1 or m2 matches b_r
+        Row "y_{|P|-r}":       min ranking where m1 or m2 matches y_{|P|−r}
+        Row "b_r & y_{|P|-r}": min ranking where one of (m1, m2) is b_r
+                               and the other is y_{|P|−r}
     """
     pep_len = pep.pep_len
     neutral_table = _build_neutral_mass_table(pep)
 
-    # Initialize with infinity (no match found)
     b_ranks = np.full(pep_len - 1, np.inf)
     y_ranks = np.full(pep_len - 1, np.inf)
     by_ranks = np.full(pep_len - 1, np.inf)
@@ -263,15 +286,12 @@ def _compute_ranks_matrix(
 
             idx = r - 1
 
-            # Row 1: either m1 or m2 matches b_r
             if m1_is_b or m2_is_b:
                 b_ranks[idx] = min(b_ranks[idx], ranking)
 
-            # Row 2: either m1 or m2 matches y_{|P|-r}
             if m1_is_y or m2_is_y:
                 y_ranks[idx] = min(y_ranks[idx], ranking)
 
-            # Row 3: one is b_r AND the other is y_{|P|-r}
             if (m1_is_b and m2_is_y) or (m1_is_y and m2_is_b):
                 by_ranks[idx] = min(by_ranks[idx], ranking)
 
@@ -280,18 +300,15 @@ def _compute_ranks_matrix(
     y_ranks[np.isinf(y_ranks)] = np.nan
     by_ranks[np.isinf(by_ranks)] = np.nan
 
-    # Convert to pandas nullable integer
     def _to_nullable_int(arr):
         return pd.array(
             [int(v) if not np.isnan(v) else pd.NA for v in arr],
             dtype=pd.Int64Dtype(),
         )
 
-    row_labels = [f"b{r}" for r in range(1, pep_len)]
-
     ranks_df = pd.DataFrame(
         {
-            "cleavage_site": row_labels,
+            "cleavage_site": [f"b{r}" for r in range(1, pep_len)],
             "complement": [f"y{pep_len - r}" for r in range(1, pep_len)],
             "b_r (min rank)": _to_nullable_int(b_ranks),
             "y_|P|-r (min rank)": _to_nullable_int(y_ranks),
@@ -332,8 +349,6 @@ def build_annotation_table(
         b/y ions.
     mono_mass_col_a, mono_mass_col_b : str
         Column names for the deconvolved neutral monoisotopic masses.
-        Default: ``"monoisotopic_mass_A"`` / ``"monoisotopic_mass_B"``
-        as produced by deconv_combine.
     charge_col_a, charge_col_b : str
         Column names for the charge assignments (i, j).
     ranking_col : str
@@ -344,22 +359,11 @@ def build_annotation_table(
     (annotation_table, ranks_matrix) : tuple of DataFrames
 
     annotation_table
-        One row per FFC, with columns:
-            X (m/z)       – deconvolved monoisotopic m/z at original charge
-            Y (m/z)       – deconvolved monoisotopic m/z at original charge
-            i, j          – charge assignments
-            m1 (neutral)  – monoisotopic neutral mass from deconvolution
-            m2 (neutral)  – monoisotopic neutral mass from deconvolution
-            m1_b, m1_shift_b, m1_y, m1_shift_y  – b/y annotation for m1
-            m2_b, m2_shift_b, m2_y, m2_shift_y  – b/y annotation for m2
-            b/y_count     – number of matched masses (0, 1, or 2)
-            Ranking       – FFC ranking
+        One row per unique (m1, m2) pair (deduplicated by best ranking),
+        with consolidated b/y columns.
 
     ranks_matrix
-        One row per cleavage site (|P|−1 rows), with columns:
-            cleavage_site, complement,
-            b_r (min rank), y_|P|-r (min rank),
-            b_r & y_|P|-r (min rank)
+        3 × (|P|−1) matrix of minimum ranks per cleavage site.
     """
     # ── Validate columns ─────────────────────────────────────────────────
     for col, fallback in [
@@ -371,8 +375,6 @@ def build_annotation_table(
     ]:
         if col not in df.columns:
             if fallback and fallback in df.columns:
-                # Remap charge columns: deconv_combine has both "i"/"j"
-                # and "charge_A"/"charge_B"
                 if col == charge_col_a:
                     charge_col_a = fallback
                 elif col == charge_col_b:
@@ -380,7 +382,7 @@ def build_annotation_table(
             else:
                 raise KeyError(f"Required column {col!r} not found in DataFrame")
 
-    # ── Step 1: Per-row annotation ───────────────────────────────────────
+    # ── Step 1: Per-row annotation + dedup ────────────────────────────────
     ann_table = _annotate_ffc_rows(
         df, pep, threshold,
         mono_mass_col_a, mono_mass_col_b,
@@ -388,7 +390,7 @@ def build_annotation_table(
         ranking_col,
     )
 
-    # ── Step 2: Ranks matrix ─────────────────────────────────────────────
+    # ── Step 2: Ranks matrix (computed on deduplicated table) ─────────────
     ranks = _compute_ranks_matrix(ann_table, pep, threshold)
 
     return ann_table, ranks
@@ -403,24 +405,6 @@ def build_annotation_table_from_combine(
     """
     Convenience wrapper that takes the dict output of
     ``deconv_combine.deconvolute_ffc_by_lines`` directly.
-
-    Always uses the "annotated" DataFrame which contains
-    ``monoisotopic_mass_A/B`` and ``charge_A/B``.
-
-    Parameters
-    ----------
-    combine_result : dict
-        Must contain key "annotated".
-    pep : peptide.Pep
-        Peptide object.
-    threshold : float
-        Mass tolerance (Da) for b/y matching.
-    ranking_col : str
-        Column name for FFC ranking.
-
-    Returns
-    -------
-    (annotation_table, ranks_matrix)
     """
     df = combine_result["annotated"]
 
@@ -428,8 +412,7 @@ def build_annotation_table_from_combine(
         empty_ann = pd.DataFrame(columns=[
             "X (m/z)", "Y (m/z)", "i", "j",
             "m1 (neutral)", "m2 (neutral)",
-            "m1_b", "m1_shift_b", "m1_y", "m1_shift_y",
-            "m2_b", "m2_shift_b", "m2_y", "m2_shift_y",
+            "b", "shift_b", "y", "shift_y",
             "b/y_count", "Ranking",
         ])
         empty_ranks = pd.DataFrame(columns=[
@@ -454,21 +437,14 @@ def build_annotation_table_from_combine(
 # =============================================================================
 
 def format_annotation_cell(row: pd.Series) -> str:
-    """
-    Format one row of the annotation table into a compact string
-    matching the PI's specification:
-
-        X | Y | (i,j) | TFFC(m1,m2) |
-        (b(m1), shift_b(m1), y(m1), shift_y(m1)) |
-        (b(m2), shift_b(m2), y(m2), shift_y(m2)) | b/y_count
-    """
+    """Format one row into a compact string."""
     parts = [
         f"X={row['X (m/z)']:.4f}",
         f"Y={row['Y (m/z)']:.4f}",
         f"({row['i']},{row['j']})",
         f"TFFC({row['m1 (neutral)']:.4f}, {row['m2 (neutral)']:.4f})",
-        f"m1:({row['m1_b']}, {row['m1_shift_b']}, {row['m1_y']}, {row['m1_shift_y']})",
-        f"m2:({row['m2_b']}, {row['m2_shift_b']}, {row['m2_y']}, {row['m2_shift_y']})",
+        f"b={row['b']}, shift={row['shift_b']}",
+        f"y={row['y']}, shift={row['shift_y']}",
         f"b/y={row['b/y_count']}",
     ]
     return " | ".join(parts)
@@ -526,8 +502,8 @@ if __name__ == "__main__":
         df, pep, threshold=THRESHOLD,
     )
 
-    print("\n=== Annotation Table (first 20 rows) ===")
-    print(ann_table.head(20).to_string(index=False))
+    print(f"\n=== Annotation Table ({len(ann_table)} unique FFCs, was {len(df)} before dedup) ===")
+    print(ann_table.to_string(index=False))
 
     print(f"\n=== Ranks Matrix ({len(ranks)} cleavage sites) ===")
     print(ranks.to_string(index=False))
@@ -546,6 +522,6 @@ if __name__ == "__main__":
     print(f"Ranks coverage: b={covered_b}/{n_sites}, y={covered_y}/{n_sites}, b&y={covered_by}/{n_sites}")
 
     # ── Export ────────────────────────────────────────────────────────────
-    OUTPUT = "annotation_table_output2.xlsx"
+    OUTPUT = "annotation_table_output.xlsx"
     annotation_table_to_excel(ann_table, ranks, OUTPUT)
     print(f"\nSaved to {OUTPUT}")
