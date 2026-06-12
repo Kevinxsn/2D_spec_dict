@@ -1061,16 +1061,16 @@ if __name__ == "__main__":
     #PEP_SEQ = "VEADIAGHGQEVLIR"
     #PEP_SEQ = "YLEFISDAIIHVLHSK"
     #PEP_SEQ = "HGTVVLTALGGILK"
-    #PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
+    PEP_SEQ = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
     #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK" # 667.90419 * 6 NH2
-    PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
+    #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES" # 749.43703 * 6
     #PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY" # 712.52139 * 6 NH2
     
     
     
-    CHARGE = 6
+    CHARGE = 4
     ISO_RANGE = 6
-    TOP_N = 1000
+    TOP_N = 10000
     MASS_THRESHOLD = 0.5
     #LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
     #LOSS_LIST = [-1, -2, -3, -4, 0, 346.151, 347.163, 345.133]
@@ -1080,7 +1080,8 @@ if __name__ == "__main__":
     #LOSS_LIST = [-1, -2, 0, -3, -4, 345.1410, 346.1430, 344.1370, 14.9770, 13.9760, 347.1470]
     #LOSS_LIST = [-1, -2, 0, -3, 223.1455, 224.1505, 222.1420, 110.0600, 241.1700, 242.1580]
     #LOSS_LIST = [-1, -2, 0, -3, -4,15.0080,16.0005, 914.5350, 913.5320]
-    LOSS_LIST = [-1, -2, 0, -3, -4, 161.0390, 14.9970, 16.0020, 162.0400, 259.0970, 260.1000]
+    #LOSS_LIST = [-1, -2, 0, -3, -4, 161.0390, 14.9970, 16.0020, 162.0400, 259.0970, 260.1000]
+    LOSS_LIST = [-1, -2, 0, -3, -4]
     
     COLUMN_ANNOTATIONS = {
     "parent": "0.002388",
@@ -1130,10 +1131,10 @@ if __name__ == "__main__":
     OUTPUT_CSV_DETAIL = "protein_result.csv"
     OUTPUT_CSV_COV = "protein.csv"
     #OUTPUT_EXCEL = "result/all.xlsx"
-    OUTPUT_EXCEL = "result/jamesv2.xlsx"
+    OUTPUT_EXCEL = "result/Book4.xlsx"
     #OUTPUT_EXCEL = "result/James_V1.xlsx"
     #OUTPUT_SHEET = f"VEA3+_{TOP_N}"
-    OUTPUT_SHEET = "LLG6+_test4"
+    OUTPUT_SHEET = "4+"
     #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
@@ -1156,21 +1157,23 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/HGT3+.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/HAD4+intensity_replaced.txt"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_LL37-Z6_NCE33_250_ions_Deisotoped_FFC_Sum_Top1000"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/james_result/Covariances_Deisotoped_V1/Covariance_Data_LL37-Z6_NCE33_250_ions_Deisotoped_FFC_Sum_Top1000"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/deconv/VEA3_ffc_loss_replaced.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_ffc_loss_replaced.txt"
     #data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions'
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced_test.txt"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariances_MORE_CHARGE_STATES/Covariance_Data.Cecropin_A.z5_801-7_NCE28_dm1_10000SCANS"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
     
     df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
     
-    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
-    df.columns = ["m/z A", "m/z B","Score", "Ranking"]
+    #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
     print(df.head())

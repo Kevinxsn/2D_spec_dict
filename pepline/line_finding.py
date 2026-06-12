@@ -71,6 +71,7 @@ class LineCluster:
     min_v: float
     max_v: float
     point_indices: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
+    point_rankings: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
 
 
 # =============================================================================
@@ -129,6 +130,7 @@ def detect_line_clusters(
     enforce_sum_leq_charge: bool = True,
     min_cluster_size: int = 3,
     return_point_indices: bool = True,
+    ranking_col: str = "Ranking",
 ) -> pd.DataFrame:
     """
     Scan all charge-split pairs (i, j) and detect clusters of consistent
@@ -155,7 +157,8 @@ def detect_line_clusters(
     -------
     DataFrame sorted by (n_points desc, diameter asc) with columns:
         i, j, n_points, diameter, center, min_v, max_v,
-        [point_indices if requested]
+        [point_indices if requested],
+        [point_rankings if requested and ranking_col exists in df]
 
     Raises
     ------
@@ -182,6 +185,10 @@ def detect_line_clusters(
     y = sub[col_b].to_numpy(dtype=float)
     orig_idx = sub.index.to_numpy()
 
+    has_rankings = return_point_indices and ranking_col in df.columns
+    if has_rankings:
+        rankings_arr = df.loc[orig_idx, ranking_col].to_numpy()
+
     # ── Enumerate charge splits ───────────────────────────────────────────
     results: List[Dict[str, Any]] = []
 
@@ -195,6 +202,8 @@ def detect_line_clusters(
             order = np.argsort(v)
             v_sorted = v[order]
             idx_sorted = orig_idx[order]
+            if has_rankings:
+                ranks_sorted = rankings_arr[order]
 
             for c_idx, min_v, max_v in _cluster_sorted_values(
                 v_sorted, idx_sorted, delta, min_cluster_size
@@ -210,6 +219,9 @@ def detect_line_clusters(
                 }
                 if return_point_indices:
                     row["point_indices"] = c_idx
+                    if has_rankings:
+                        # look up rankings by original df index
+                        row["point_rankings"] = df.loc[c_idx, ranking_col].to_numpy()
                 results.append(row)
 
     result_df = pd.DataFrame(results)
@@ -355,6 +367,7 @@ def merge_nearby_clusters(
         "i": _mode,
         "j": _mode,
         "point_indices": _merge_indices,
+        "point_rankings": _merge_indices,
     }
     for col, func in optional.items():
         if col in df2.columns:
@@ -531,13 +544,13 @@ if __name__ == "__main__":
     #PARENT_MASS = 4494.60433
     #PARENT_MASS = 4007.4216300000007
     #PARENT_MASS = 4275.1248 
-    TOP_N = 300
+    TOP_N = 100
     DELTA = 0.01
     MIN_CLUSTER_SIZE = 3
     
 
     # ── Load & prepare ────────────────────────────────────────────────────
-    #ffc_df = load_ffc_excel(EXCEL_PATH, SHEET_NAME)
+    ffc_df = load_ffc_excel(EXCEL_PATH, SHEET_NAME)
     data_path = '/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt'
     ffc_df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
