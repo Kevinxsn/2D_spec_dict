@@ -1070,7 +1070,7 @@ if __name__ == "__main__":
     
     CHARGE = 4
     ISO_RANGE = 6
-    TOP_N = 10000
+    TOP_N = 1000
     MASS_THRESHOLD = 0.5
     #LOSS_LIST = [-1, -2, -3, 0, 229.112, 228.109, 100.069, 99.069, 1]
     #LOSS_LIST = [-1, -2, -3, -4, 0, 346.151, 347.163, 345.133]
@@ -1081,7 +1081,11 @@ if __name__ == "__main__":
     #LOSS_LIST = [-1, -2, 0, -3, 223.1455, 224.1505, 222.1420, 110.0600, 241.1700, 242.1580]
     #LOSS_LIST = [-1, -2, 0, -3, -4,15.0080,16.0005, 914.5350, 913.5320]
     #LOSS_LIST = [-1, -2, 0, -3, -4, 161.0390, 14.9970, 16.0020, 162.0400, 259.0970, 260.1000]
-    LOSS_LIST = [-1, -2, 0, -3, -4]
+    #LOSS_LIST = [-1, -2, 0, -3, -4]
+    
+    #LOSS_LIST = [-347.15, -346.15, -345.15, -130.01, -112.06, -15.99, -14.99, -13.99, 0.00, 1.02, 2.02, 2.03, 3.03, 4.03]
+    LOSS_LIST = [-1965.95, -1872.39, -1567.19, -1284.48, -1256.5, -1162.48, -879.76, -597.05, -534.17, -348.16, -157.23, -137.27, -131.02, -118.01, -114.07, -113.07, -27.98, -17.99, 0, 310.9, 351.42, 415.96]
+    LOSS_LIST = [-i for i in LOSS_LIST]
     
     COLUMN_ANNOTATIONS = {
     "parent": "0.002388",
@@ -1134,7 +1138,7 @@ if __name__ == "__main__":
     OUTPUT_EXCEL = "result/Book4.xlsx"
     #OUTPUT_EXCEL = "result/James_V1.xlsx"
     #OUTPUT_SHEET = f"VEA3+_{TOP_N}"
-    OUTPUT_SHEET = "4+"
+    OUTPUT_SHEET = "4+_deconv_greedy"
     #OUTPUT_SHEET = "Neuropeptide_Sum_Top10000"
 
     # ── Build peptide ─────────────────────────────────────────────────────
@@ -1165,17 +1169,19 @@ if __name__ == "__main__":
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/KWK6+NCE20_combine_replaced_test.txt"
     #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariances_MORE_CHARGE_STATES/Covariance_Data.Cecropin_A.z5_801-7_NCE28_dm1_10000SCANS"
-    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
+    #data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
+    data_path = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
     
-    df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
+    #df = pd.read_csv(data_path, sep=r"\s+", skiprows=1, header=None, engine="python")
     
     
-    df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'iso']
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
     #df.columns = ["m/z A", "m/z B","Score", "Ranking"]
     #df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B', 'line ID']
     
+    df = pd.read_csv(data_path, sep='\t')
     print(df.head())
     num_ffcs_total = len(df)
 
@@ -1233,15 +1239,18 @@ if __name__ == "__main__":
     # Start with the first two columns (AA + coverage)
     df_list = [cov_table[cov_table.columns[0]], cov_table[cov_table.columns[1]]]
 
-    for i, group in enumerate(grouped):
+    # Isotopic groups first
+    for group in grouped:
         if isinstance(group, list):
             df_list.append(isocolumns(cov_table, group))
             display_names = ["parent" if x == 0 else x for x in group]
             df_list.append(cov_table[display_names])
-        else:
-            # Remaining ungrouped columns
-            df_list.append(cov_table[grouped[i:]])
-            break
+
+    # Ungrouped (non-isotopic) columns last, just before Row Count / theo mass
+    for group in grouped:
+        if not isinstance(group, list):
+            col_name = "parent" if group == 0 else group
+            df_list.append(cov_table[[col_name]])
 
     final_df = pd.concat(df_list, axis=1)
     # Append last two columns from cov_table (typically Row Count & theoretical mass)
