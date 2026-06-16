@@ -650,26 +650,30 @@ def double_with_swapped_columns(df, col1, col2, reset_index=True):
 if __name__ == "__main__":
     from line_finding import load_ffc_excel, prepare_ffc_data  # reuse loaders
 
-    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
-    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
-    PARENT_CHARGE = 4
-    DELTA = 0.02
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/VEA_merged.tsv"
+    PARENT_CHARGE = 3
+    DELTA = 0.001
     MIN_FFC = 3
-    TOP_N = 300
-    MAX_RANKINGS = 5       # max rankings shown per line in the output table
-    #PARENT_MASS = 1608.87  # set to None to omit the shift column
-    PARENT_MASS = 941.96162 * 4
+    TOP_N = 1000
+    MAX_RANKINGS = 20       # max rankings shown per line in the output table
+    PARENT_MASS = 1608.87  # set to None to omit the shift column
+    #PARENT_MASS = 941.96162 * 4
 
-    #ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
-    #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
-    ffc_df = pd.read_csv(DATA_PATH, sep='\t')
+    ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    #ffc_df = pd.read_csv(DATA_PATH, sep='\t')
     
     
     #ffc_df = double_with_swapped_columns(ffc_df, 'm/z A', 'm/z B')
-    
+    from merge_ffcs import merge_duplicate_ffcs
+
+
     
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
+    #ffc_df = merge_duplicate_ffcs(ffc_df)
 
     lines, master = greedy_lines(
         ffc_df,
