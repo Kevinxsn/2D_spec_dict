@@ -420,7 +420,8 @@ def run_greedy_annotation(
     )
 
     all_lines = master + line_list
-
+    
+    
     table = coverage_table_greedy(
         ffc_df,
         all_lines,
@@ -453,8 +454,8 @@ if __name__ == "__main__":
     # ── Configuration ─────────────────────────────────────────────────────
     #DATA_PATH    = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/VEA_merged.tsv"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
-    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
-    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
     
     #PEP_SEQ      = "VEADIAGHGQEVLIR"
     PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
@@ -468,18 +469,18 @@ if __name__ == "__main__":
     ISO_RANGE    = 1
     THRESHOLD    = 0.05
     OUTPUT_EXCEL = "result/Book4.xlsx"
-    OUTPUT_SHEET = "greedy_annot"
+    OUTPUT_SHEET = "greedy_annot_4+_deconv"
 
     # ── Build peptide & load data ──────────────────────────────────────────
     pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
     print(f"Precursor mass: {pep.pep_mass}")
 
     
-    ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
-    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
-    #ffc_df = pd.read_csv(DATA_PATH, sep="\t")
+    #ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+    #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    ffc_df = pd.read_csv(DATA_PATH, sep="\t")
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
-    #ffc_df = merge_duplicate_ffcs(ffc_df)
+    ffc_df = merge_duplicate_ffcs(ffc_df)
     print(f"FFC rows after filter: {len(ffc_df)}")
 
     # ── Run pipeline ──────────────────────────────────────────────────────
@@ -500,6 +501,7 @@ if __name__ == "__main__":
     print("\nCoverage table (data rows only):")
     data_rows = cov_table.iloc[:pep.pep_len - 1]
     print(data_rows.to_string())
+    
 
     # ── Export ────────────────────────────────────────────────────────────
     with pd.ExcelWriter(
@@ -507,3 +509,7 @@ if __name__ == "__main__":
     ) as writer:
         cov_table.to_excel(writer, sheet_name=OUTPUT_SHEET, index_label="Bond")
     print(f"\nSaved to {OUTPUT_EXCEL} [{OUTPUT_SHEET}]")
+    
+    print(ffc_df[ffc_df["Ranking"] == 171])
+    print(ffc_df[ffc_df["Ranking"] == 114])
+    print(ffc_df[ffc_df["Ranking"] == 476])

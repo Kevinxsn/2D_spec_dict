@@ -424,7 +424,7 @@ pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
 b_ions = {f'b{i}': pep.ion_mass(f'b{i}') for i in range(1, len(PEP_SEQ))}
 y_ions = {f'y{i}': pep.ion_mass(f'y{i}') for i in range(1, len(PEP_SEQ))}
 
-ranking_to_drop = [3, 9, 10, 12, 18, 24, 27, 34, 36, 45, 6, 22, 32, 35, 49, 1, 1, 2, 2, 4, 4, 5, 5, 7, 7, 11, 11, 13, 13, 14, 14, 19, 19, 8, 8, 17, 17, 31, 31, 37, 37, 38, 38, 40, 40, 47, 47, 23, 23, 29, 29, 46, 46]
+ranking_to_drop = [3, 9, 10, 12, 18, 24, 27, 34, 36, 45, 6, 22, 32, 35, 49, 1, 1, 2, 2, 4, 4, 5, 5, 7, 7, 11, 11, 13, 13, 14, 14, 19, 19, 8, 8, 17, 17, 31, 31, 37, 37, 38, 38, 40, 40, 47, 47, 23, 23, 29, 29, 46, 46, 16, 21, 44]
 df_annot = pd.read_csv('point_not_line_VEA.csv')
 df_annot.head()
 

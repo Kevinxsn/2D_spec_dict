@@ -5,27 +5,36 @@ Identifies FFCs that lie on the parental line (shift ≈ 0) but cannot be
 annotated to any b/y ion breaking point.
 
 A "breaking point" requires BOTH fragment masses to match a known b/y ion
-(within ``threshold`` Da) for at least one (i, j) charge-split assignment
-on any detected parental line.  FFCs that never satisfy this condition on
-any parental line are called "spurious".
+(within ``threshold`` Da) for at least one (i, j) charge-split assignment.
+FFCs that never satisfy this condition on any valid parental assignment are
+called "spurious".
 
-Workflow
---------
-1. Run find_parental_lines() to detect all parental lines.
-2. Keep only lines with  |line.mass - parent_mass| < parental_shift_threshold.
-3. Collect every FFC that appears in any of those lines' member_indices.
-4. For each FFC, try every parental-line assignment (i, j):
-       adj_A = i * mz_A - (i-1) * H
-       adj_B = j * mz_B - (j-1) * H
-   If any (i, j, ion_A, ion_B) triple gives a full match → not spurious.
-5. Return the Rankings of all spurious FFCs and the corresponding rows.
+Algorithm
+---------
+Unlike the greedy-line pipeline, this script classifies each FFC
+**independently** using a direct mass check:
+
+    For each FFC (mz_A, mz_B):
+        for every (i, j) with i + j == parent_charge:
+            v = i * mz_A + j * mz_B
+            if |v - parent_mass| < parental_shift_threshold:
+                → this FFC is "on the parental line" under (i, j)
+                → try to annotate adj_A, adj_B against b/y ions
+                → if BOTH match → not spurious, stop
+
+This avoids all greedy machinery (no Sort-and-Split, no cluster voting,
+no removal), which means:
+  • Each FFC is evaluated against ALL valid (i, j) assignments.
+  • Adding more FFCs never changes the classification of already-seen ones
+    (superset property is preserved).
+  • Runtime is O(N × parent_charge) instead of O(N × parent_charge × log N).
 """
 
 from __future__ import annotations
 
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -37,7 +46,6 @@ from annotation import (
     _build_theoretical_ions,
     _find_all_matches,
 )
-from greedy_line import Line, find_parental_lines
 
 
 # =============================================================================
@@ -49,9 +57,6 @@ def find_spurious_parental_ffcs(
     pep,
     parent_charge: int,
     parent_mass: float,
-    delta: float = 0.02,
-    min_ffc_number: int = 3,
-    line_tol: Optional[float] = None,
     iso_range: int = 0,
     threshold: float = 0.05,
     parental_shift_threshold: float = 0.05,
@@ -71,24 +76,17 @@ def find_spurious_parental_ffcs(
     parent_charge : int
         Precursor charge state.
     parent_mass : float
-        Precursor reconstructed mass used as reference for shift = 0.
-        Same convention as annotation_greedy.py:
-            mass = i*mz_A + j*mz_B ≈ M + parent_charge * H
-    delta : float
-        Sort-and-Split gap threshold for line detection.
-    min_ffc_number : int
-        Minimum FFCs required to call a valid line.
-    line_tol : float, optional
-        Tolerance for on-line membership during greedy removal.
-        Defaults to delta.
+        Precursor reconstructed mass reference:  i*mz_A + j*mz_B ≈ parent_mass.
+        Same convention as annotation_greedy.py (i.e. M + parent_charge * H,
+        no extra PROTON term).
     iso_range : int
         Number of isotope variants to consider during b/y matching.
     threshold : float
         Mass tolerance (Da) for b/y ion matching.
     parental_shift_threshold : float
-        Maximum |line.mass - parent_mass| for a line to be considered
-        parental (i.e. shift ≈ 0).  Default 0.05 Da captures the ±0.02 Da
-        typical reconstruction spread.
+        Maximum |i*mz_A + j*mz_B - parent_mass| for an FFC to be considered
+        on the parental line under a given (i, j) assignment.
+        Default 0.05 Da captures the typical ±0.02 Da reconstruction spread.
     col_a, col_b : str
         Column names for the two m/z values in ffc_df.
     ranking_col : str
@@ -100,67 +98,63 @@ def find_spurious_parental_ffcs(
         Sorted Rankings of all spurious FFCs (empty if none found).
     spurious_df : DataFrame
         Subset of ffc_df rows for spurious FFCs, with extra columns:
-            n_parental_lines  – how many parental lines claimed this FFC
-            repr_i, repr_j    – (i, j) of the first claiming line
-            repr_line_mass    – line.mass of the first claiming line
-            adj_mass_A        – singly-charged mass of fragment A (repr line)
-            adj_mass_B        – singly-charged mass of fragment B (repr line)
+            n_parental_assignments  – number of (i,j) pairs that placed this
+                                      FFC on the parental line
+            repr_i, repr_j          – (i, j) of the first such assignment
+            repr_line_mass          – reconstructed mass under that (i, j)
+            adj_mass_A, adj_mass_B  – singly-charged masses under repr (i, j)
     """
     _EXTRA_COLS = [
-        "n_parental_lines", "repr_i", "repr_j",
+        "n_parental_assignments", "repr_i", "repr_j",
         "repr_line_mass", "adj_mass_A", "adj_mass_B",
     ]
     empty_df = pd.DataFrame(columns=list(ffc_df.columns) + _EXTRA_COLS)
 
-    # ── 1. Detect parental lines ───────────────────────────────────────────
-    parental_lines = find_parental_lines(
-        ffc_df,
-        parent_charge=parent_charge,
-        delta=delta,
-        min_ffc_number=min_ffc_number,
-        col_a=col_a,
-        col_b=col_b,
-        ranking_col=ranking_col,
-        line_tol=line_tol,
-    )
+    if ffc_df.empty:
+        return [], empty_df
 
-    # ── 2. Keep only shift ≈ 0 lines ──────────────────────────────────────
-    true_parental: List[Line] = [
-        ln for ln in parental_lines
-        if abs(ln.mass - parent_mass) < parental_shift_threshold
+    # All (i, j) pairs with i + j == parent_charge, i >= 1, j >= 1
+    parental_pairs = [
+        (i, parent_charge - i) for i in range(1, parent_charge)
     ]
-
-    if not true_parental:
+    if not parental_pairs:
         return [], empty_df
 
-    # ── 3. Collect FFCs → [lines that claim them] ─────────────────────────
-    ffc_to_lines: Dict[int, List[Line]] = {}
-    for ln in true_parental:
-        for idx in ln.member_indices:
-            ffc_to_lines.setdefault(int(idx), []).append(ln)
-
-    if not ffc_to_lines:
-        return [], empty_df
-
-    # ── 4. Build theoretical ions (no neutral-loss extension for parental) ─
     ions = _build_theoretical_ions(pep, iso_range)
-
     has_ranking = ranking_col in ffc_df.columns
 
-    # ── 5. Classify each FFC ──────────────────────────────────────────────
+    mz_a_arr = ffc_df[col_a].to_numpy(dtype=float)
+    mz_b_arr = ffc_df[col_b].to_numpy(dtype=float)
+
+    # Pre-compute reconstructed masses for every (i, j) pair — shape (n_pairs, N)
+    recon = np.stack(
+        [i * mz_a_arr + j * mz_b_arr for (i, j) in parental_pairs],
+        axis=0,
+    )  # (n_pairs, N)
+
+    # For each FFC: which (i, j) assignments put it on the parental line?
+    on_parental = np.abs(recon - parent_mass) < parental_shift_threshold
+    # Rows with at least one valid assignment
+    candidate_mask = on_parental.any(axis=0)
+
     spurious_rows = []
+    df_indices = ffc_df.index.to_numpy()
 
-    for idx, lines in ffc_to_lines.items():
-        if idx not in ffc_df.index:
-            continue
+    for k in np.where(candidate_mask)[0]:
+        ffc_row = ffc_df.iloc[k]
+        mz_a = float(mz_a_arr[k])
+        mz_b = float(mz_b_arr[k])
 
-        ffc_row = ffc_df.loc[idx]
-        mz_a = float(ffc_row[col_a])
-        mz_b = float(ffc_row[col_b])
+        # Collect valid (i, j) assignments for this FFC
+        assignments = [
+            (parental_pairs[p][0], parental_pairs[p][1], float(recon[p, k]))
+            for p in range(len(parental_pairs))
+            if on_parental[p, k]
+        ]
 
+        # Try to find a full annotation under any assignment
         fully_annotated = False
-        for ln in lines:
-            i, j = ln.i, ln.j
+        for i, j, v in assignments:
             adj_a = i * mz_a - (i - 1) * MASS_H
             adj_b = j * mz_b - (j - 1) * MASS_H
 
@@ -180,18 +174,17 @@ def find_spurious_parental_ffcs(
                 break
 
         if not fully_annotated:
-            repr_ln = lines[0]
-            repr_i, repr_j = repr_ln.i, repr_ln.j
+            repr_i, repr_j, repr_v = assignments[0]
             adj_a_repr = repr_i * mz_a - (repr_i - 1) * MASS_H
             adj_b_repr = repr_j * mz_b - (repr_j - 1) * MASS_H
 
             extra: dict = {
-                "n_parental_lines": len(lines),
-                "repr_i":           repr_i,
-                "repr_j":           repr_j,
-                "repr_line_mass":   round(repr_ln.mass, 4),
-                "adj_mass_A":       round(adj_a_repr, 4),
-                "adj_mass_B":       round(adj_b_repr, 4),
+                "n_parental_assignments": len(assignments),
+                "repr_i":                repr_i,
+                "repr_j":                repr_j,
+                "repr_line_mass":        round(repr_v, 4),
+                "adj_mass_A":            round(adj_a_repr, 4),
+                "adj_mass_B":            round(adj_b_repr, 4),
             }
             spurious_rows.append(ffc_row.to_dict() | extra)
 
@@ -204,6 +197,157 @@ def find_spurious_parental_ffcs(
         spurious_rankings = sorted(int(r) for r in spurious_df[ranking_col])
 
     return spurious_rankings, spurious_df
+
+
+# =============================================================================
+# Full parental-line annotation
+# =============================================================================
+
+def _sort_ion_names(names):
+    """Sort ion names like ['b10', 'b3', 'y5'] numerically."""
+    def _key(n):
+        try:
+            return (n[0], int(n[1:]))
+        except (IndexError, ValueError):
+            return (n, 0)
+    return sorted(names, key=_key)
+
+
+def parental_ffc_annotations(
+    ffc_df: pd.DataFrame,
+    pep,
+    parent_charge: int,
+    parent_mass: float,
+    iso_range: int = 0,
+    threshold: float = 0.05,
+    parental_shift_threshold: float = 0.05,
+    col_a: str = "m/z A",
+    col_b: str = "m/z B",
+    ranking_col: str = "Ranking",
+) -> pd.DataFrame:
+    """
+    Return all FFCs on the parental line with their annotation status.
+
+    For each FFC that satisfies  |i*mz_A + j*mz_B - parent_mass| <
+    ``parental_shift_threshold`` under any valid (i, j) with i+j == parent_charge:
+
+    * If BOTH fragments match a known b/y ion under at least one (i, j):
+      – ``b_ions``        : comma-separated b ion names found (e.g. "b5, b12")
+      – ``breaking_points``: semicolon-separated "base_A/base_B" pairs
+        (e.g. "b5/y10; b5/y10+1")
+    * Otherwise (spurious):
+      – ``b_ions``        : "spurious"
+      – ``breaking_points``: "spurious"
+
+    All valid (i, j) assignments are tried; a single full match anywhere
+    across all assignments makes the FFC non-spurious.
+
+    Parameters
+    ----------
+    (same as find_spurious_parental_ffcs)
+
+    Returns
+    -------
+    DataFrame with one row per parental-line FFC, sorted by ``ranking_col``
+    (if present).  Columns added beyond the original ffc_df columns:
+        n_parental_assignments, repr_i, repr_j, repr_line_mass,
+        adj_mass_A, adj_mass_B, b_ions, breaking_points
+    """
+    _EXTRA_COLS = [
+        "n_parental_assignments", "repr_i", "repr_j",
+        "repr_line_mass", "adj_mass_A", "adj_mass_B",
+        "b_ions", "breaking_points",
+    ]
+    empty_df = pd.DataFrame(columns=list(ffc_df.columns) + _EXTRA_COLS)
+
+    if ffc_df.empty:
+        return empty_df
+
+    parental_pairs = [(i, parent_charge - i) for i in range(1, parent_charge)]
+    if not parental_pairs:
+        return empty_df
+
+    ions = _build_theoretical_ions(pep, iso_range)
+    has_ranking = ranking_col in ffc_df.columns
+
+    mz_a_arr = ffc_df[col_a].to_numpy(dtype=float)
+    mz_b_arr = ffc_df[col_b].to_numpy(dtype=float)
+
+    recon = np.stack(
+        [i * mz_a_arr + j * mz_b_arr for (i, j) in parental_pairs], axis=0
+    )
+    on_parental = np.abs(recon - parent_mass) < parental_shift_threshold
+    candidate_mask = on_parental.any(axis=0)
+
+    result_rows = []
+
+    for k in np.where(candidate_mask)[0]:
+        ffc_row = ffc_df.iloc[k]
+        mz_a = float(mz_a_arr[k])
+        mz_b = float(mz_b_arr[k])
+
+        assignments = [
+            (parental_pairs[p][0], parental_pairs[p][1], float(recon[p, k]))
+            for p in range(len(parental_pairs))
+            if on_parental[p, k]
+        ]
+
+        b_ions_found: set = set()
+        breaking_points_found: set = set()
+
+        for i, j, v in assignments:
+            adj_a = i * mz_a - (i - 1) * MASS_H
+            adj_b = j * mz_b - (j - 1) * MASS_H
+
+            matches_a = _find_all_matches(adj_a, ions, threshold)
+            matches_b = _find_all_matches(adj_b, ions, threshold)
+
+            for ma in matches_a:
+                if ma["base_name"] is None:
+                    continue
+                for mb in matches_b:
+                    if mb["base_name"] is None:
+                        continue
+                    breaking_points_found.add(
+                        f"{ma['base_name']}/{mb['base_name']}"
+                    )
+                    for bn in (ma["base_name"], mb["base_name"]):
+                        if bn.startswith("b"):
+                            b_ions_found.add(bn)
+
+        is_spurious = len(breaking_points_found) == 0
+
+        repr_i, repr_j, repr_v = assignments[0]
+        adj_a_repr = repr_i * mz_a - (repr_i - 1) * MASS_H
+        adj_b_repr = repr_j * mz_b - (repr_j - 1) * MASS_H
+
+        row_dict = ffc_row.to_dict()
+        row_dict.update({
+            "n_parental_assignments": len(assignments),
+            "repr_i":                repr_i,
+            "repr_j":                repr_j,
+            "repr_line_mass":        round(repr_v, 4),
+            "adj_mass_A":            round(adj_a_repr, 4),
+            "adj_mass_B":            round(adj_b_repr, 4),
+            "b_ions": (
+                "spurious" if is_spurious
+                else ", ".join(_sort_ion_names(b_ions_found))
+            ),
+            "breaking_points": (
+                "spurious" if is_spurious
+                else "; ".join(sorted(breaking_points_found))
+            ),
+        })
+        result_rows.append(row_dict)
+
+    if not result_rows:
+        return empty_df
+
+    result_df = pd.DataFrame(result_rows).reset_index(drop=True)
+    if has_ranking and ranking_col in result_df.columns:
+        result_df = result_df.sort_values(ranking_col).reset_index(drop=True)
+
+    return result_df
 
 
 # =============================================================================
@@ -221,41 +365,50 @@ if __name__ == "__main__":
 
     # ── Configuration ─────────────────────────────────────────────────────
     #DATA_PATH   = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/VEA_merged.tsv"
-    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/KWK6+NCE20_with_intensity"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/YLE3+.txt"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/HGT3+.txt"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
-    PEP_SEQ     = "VEADIAGHGQEVLIR"
+    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK"
+    #PEP_SEQ     = "VEADIAGHGQEVLIR"
     #PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
-    CHARGE      = 3
+    #PEP_SEQ = "YLEFISDAIIHVLHSK"
+    #PEP_SEQ = "HGTVVLTALGGILK"
+    PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
+    #CHARGE      = 3
     #CHARGE      = 4
-    PARENT_MASS = 1608.87      # i*mzA + j*mzB reference (M + Z*H)
+    CHARGE = 6
+    #PARENT_MASS =  667.90419 * 6.  #KWK
+    #PARENT_MASS = 1608.87      # i*mzA + j*mzB reference (M + Z*H) VEA
+    #PARENT_MASS = 1887.036239 #YLE
+    PARENT_MASS = 1380.85609 #HGT
     #PARENT_MASS  = 941.96162 * 4
     TOP_N       = 50000
-    DELTA       = 0.005
-    MIN_FFC     = 3
     ISO_RANGE   = 1
     THRESHOLD   = 0.05
     PARENTAL_SHIFT_THRESHOLD = 0.05
 
     # ── Build peptide & load data ─────────────────────────────────────────
     pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
+    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
     print(f"Peptide: {PEP_SEQ}  charge={CHARGE}  parent_mass={PARENT_MASS}")
 
-    
     ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+    #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
     ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
     #ffc_df = pd.read_csv(DATA_PATH, sep="\t")
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
     #ffc_df = merge_duplicate_ffcs(ffc_df)
     print(f"FFC rows after filter: {len(ffc_df)}")
 
-    # ── Run ───────────────────────────────────────────────────────────────
+    # ── Run: spurious only ────────────────────────────────────────────────
     rankings, spurious_df = find_spurious_parental_ffcs(
         ffc_df,
         pep,
         parent_charge=CHARGE,
         parent_mass=PARENT_MASS,
-        delta=DELTA,
-        min_ffc_number=MIN_FFC,
         iso_range=ISO_RANGE,
         threshold=THRESHOLD,
         parental_shift_threshold=PARENTAL_SHIFT_THRESHOLD,
@@ -270,8 +423,37 @@ if __name__ == "__main__":
             c for c in [
                 "m/z A", "m/z B", "Ranking",
                 "repr_i", "repr_j", "repr_line_mass",
-                "adj_mass_A", "adj_mass_B", "n_parental_lines",
+                "adj_mass_A", "adj_mass_B", "n_parental_assignments",
             ]
             if c in spurious_df.columns
         ]
         print(spurious_df[show_cols].to_string(index=False))
+
+    # ── Run: all parental FFCs with annotation ────────────────────────────
+    print("\n" + "=" * 60)
+    annot_df = parental_ffc_annotations(
+        ffc_df,
+        pep,
+        parent_charge=CHARGE,
+        parent_mass=PARENT_MASS,
+        iso_range=ISO_RANGE,
+        threshold=THRESHOLD,
+        parental_shift_threshold=PARENTAL_SHIFT_THRESHOLD,
+    )
+
+    print(f"\nAll parental-line FFCs: {len(annot_df)}")
+    n_spurious = (annot_df["b_ions"] == "spurious").sum()
+    print(f"  Spurious : {n_spurious}")
+    print(f"  Annotated: {len(annot_df) - n_spurious}")
+
+    if not annot_df.empty:
+        show_cols = [
+            c for c in [
+                "m/z A", "m/z B", "Ranking",
+                "repr_i", "repr_j",
+                "adj_mass_A", "adj_mass_B",
+                "b_ions", "breaking_points",
+            ]
+            if c in annot_df.columns
+        ]
+        print(annot_df[show_cols].to_string(index=False))
