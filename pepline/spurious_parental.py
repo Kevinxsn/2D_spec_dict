@@ -350,6 +350,88 @@ def parental_ffc_annotations(
     return result_df
 
 
+def merge_parental_annotations(
+    annot_df: pd.DataFrame,
+    merge_tol: float = 0.05,
+    ranking_col: str = "Ranking",
+    adj_col_a: str = "adj_mass_A",
+    adj_col_b: str = "adj_mass_B",
+) -> pd.DataFrame:
+    """
+    Collapse symmetric (A, B) / (B, A) pairs in a ``parental_ffc_annotations``
+    output into one row per unique fragment-mass pair.
+
+    Each row's ``adj_mass_A`` / ``adj_mass_B`` are charge-1 equivalent m/z
+    values (``repr_i * mzA - (repr_i-1)*H``), so they are already
+    charge-independent.  Two rows are considered the same pair when their
+    canonical (min, max) adj_mass values are within ``merge_tol`` of each
+    other.  The best-ranked (lowest ``ranking_col``) row is kept.
+
+    The returned DataFrame replaces ``adj_mass_A`` / ``adj_mass_B`` with
+    ``mz1_lo`` / ``mz1_hi`` (smaller value first) and drops the raw m/z and
+    charge columns that are no longer meaningful after the merge.
+
+    Parameters
+    ----------
+    annot_df : DataFrame
+        Output of ``parental_ffc_annotations``.
+    merge_tol : float
+        Tolerance in Da for grouping near-identical charge-1 masses.
+    ranking_col : str
+        Column used to select the best row within each group (lower = better).
+    adj_col_a, adj_col_b : str
+        Names of the charge-independent mass columns.
+
+    Returns
+    -------
+    DataFrame with one row per unique (mz1_lo, mz1_hi) pair, sorted by
+    ``ranking_col``.  Columns ``mz1_lo`` and ``mz1_hi`` replace the original
+    raw m/z and charge columns.
+    """
+    if annot_df.empty or adj_col_a not in annot_df.columns or adj_col_b not in annot_df.columns:
+        return annot_df.copy()
+
+    a = annot_df[adj_col_a].values.astype(float)
+    b = annot_df[adj_col_b].values.astype(float)
+
+    result = annot_df.copy()
+    result["mz1_lo"] = np.minimum(a, b).round(4)
+    result["mz1_hi"] = np.maximum(a, b).round(4)
+
+    # Sequential gap-based grouping on sorted (lo, hi) pairs.
+    # Fixed-grid rounding would split values near a bin boundary even when
+    # their gap is well within merge_tol; sorting and checking consecutive
+    # gaps avoids that problem entirely.
+    tmp = (result[["mz1_lo", "mz1_hi", ranking_col]]
+           .sort_values(["mz1_lo", "mz1_hi"])
+           .reset_index())          # keep original index to map back
+    lo = tmp["mz1_lo"].values
+    hi = tmp["mz1_hi"].values
+
+    gid, group_ids = 0, [0]
+    for k in range(1, len(tmp)):
+        if (lo[k] - lo[k - 1] > merge_tol) or (abs(hi[k] - hi[k - 1]) > merge_tol):
+            gid += 1
+        group_ids.append(gid)
+    tmp["_group"] = group_ids
+
+    # For each group keep the row with the lowest ranking value
+    best_orig_idx = (tmp.groupby("_group")[ranking_col]
+                     .idxmin()          # index into tmp
+                     .map(tmp["index"]) # map back to original result index
+                     .values)
+
+    result = (result.loc[best_orig_idx]
+              .drop(columns=[adj_col_a, adj_col_b,
+                              "m/z A", "m/z B",
+                              "repr_i", "repr_j"],
+                    errors="ignore")
+              .sort_values(ranking_col)
+              .reset_index(drop=True))
+
+    return result
+
+
 # =============================================================================
 # Example / quick test
 # =============================================================================
@@ -369,38 +451,60 @@ if __name__ == "__main__":
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/KWK6+NCE20_with_intensity"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/YLE3+.txt"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/HGT3+.txt"
-    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.NeuropeptideY_Z6_NCE25_300_ions"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/KWK5_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/KWK6_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/HAD_merged.tsv"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/YPS6_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/LLG6_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/deconv/LLG6+_combine_replaced.txt"
+    #DATA_PATH = "/Users/kevinmbp/Downloads/LLG6_test_merged.tsv"
+    
+    
     #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK"
     #PEP_SEQ     = "VEADIAGHGQEVLIR"
     #PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
     #PEP_SEQ = "YLEFISDAIIHVLHSK"
     #PEP_SEQ = "HGTVVLTALGGILK"
     PEP_SEQ = "YPSKPDNPGEDAPAEDMARYYSALRHYINLITRQRY"
+    #PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES"
+    
     #CHARGE      = 3
     #CHARGE      = 4
     CHARGE = 6
-    #PARENT_MASS =  667.90419 * 6.  #KWK
+    #CHARGE = 5
+    
+    #PARENT_MASS =  667.90419 * 6.  #KWK 4007.42514
     #PARENT_MASS = 1608.87      # i*mzA + j*mzB reference (M + Z*H) VEA
     #PARENT_MASS = 1887.036239 #YLE
-    PARENT_MASS = 1380.85609 #HGT
-    #PARENT_MASS  = 941.96162 * 4
-    TOP_N       = 50000
-    ISO_RANGE   = 1
+    #PARENT_MASS = 1380.85609 #HGT
+    #PARENT_MASS  = 941.96162 * 4 3767.84648
+    #PARENT_MASS = 712.52139 * 6 #YPS
+    #PARENT_MASS = 749.43703 * 6 #LLG 4,496.62218
+    PARENT_MASS = 0
+    
+    TOP_N       = 150000
+    ISO_RANGE   = 4
     THRESHOLD   = 0.05
     PARENTAL_SHIFT_THRESHOLD = 0.05
 
     # ── Build peptide & load data ─────────────────────────────────────────
-    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
-    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
+    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
+    pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
+    PARENT_MASS = pep.pep_mass
+    
     print(f"Peptide: {PEP_SEQ}  charge={CHARGE}  parent_mass={PARENT_MASS}")
 
-    ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+    #ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
     #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking", 'intensity A', 'intensity B']
-    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
-    #ffc_df = pd.read_csv(DATA_PATH, sep="\t")
+    #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    ffc_df = pd.read_csv(DATA_PATH, sep="\t")
+    
+    #print(ffc_df[ffc_df['ffc_df'] is in []])
+    
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
-    #ffc_df = merge_duplicate_ffcs(ffc_df)
+    ffc_df = merge_duplicate_ffcs(ffc_df)
     print(f"FFC rows after filter: {len(ffc_df)}")
 
     # ── Run: spurious only ────────────────────────────────────────────────
@@ -457,3 +561,6 @@ if __name__ == "__main__":
             if c in annot_df.columns
         ]
         print(annot_df[show_cols].to_string(index=False))
+        
+        
+        print(merge_parental_annotations(annot_df))

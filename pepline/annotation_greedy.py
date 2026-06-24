@@ -456,11 +456,14 @@ if __name__ == "__main__":
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/KWK5_merged.tsv"
     
     #PEP_SEQ      = "VEADIAGHGQEVLIR"
     PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
+    #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK"
     #CHARGE       = 3
     CHARGE       = 4
+    #CHARGE = 5
     #PARENT_MASS  = 1608.87
     PARENT_MASS  = 941.96162 * 4
     TOP_N        = 1000
@@ -469,11 +472,13 @@ if __name__ == "__main__":
     ISO_RANGE    = 1
     THRESHOLD    = 0.05
     OUTPUT_EXCEL = "result/Book4.xlsx"
-    OUTPUT_SHEET = "greedy_annot_4+_deconv"
+    OUTPUT_SHEET = "greedy_annot_5+_deconv"
 
     # ── Build peptide & load data ──────────────────────────────────────────
     pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20=True)
+    #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
     print(f"Precursor mass: {pep.pep_mass}")
+    PARENT_MASS = pep.pep_mass
 
     
     #ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")

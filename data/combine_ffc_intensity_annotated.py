@@ -15,16 +15,14 @@ import pandas as pd
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 INTENSITY_PATH = (
-    "/Users/kevinmbp/Desktop/2D_spec_dict/data/virtual_MSMS/"
-    "GLP2_Z4_NCE15_200_ions_Intensity_Sum"
+    "/Users/kevinmbp/Desktop/2D_spec_dict/data/virtual_MSMS/LL37_Z6_NCE33_150_ions_Intensity_Sum"
 )
 FFC_PATH = (
-    "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/"
-    "CovarianceData.GLP2_Z4_NCE15_200_ions"
+     "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
 )
 OUTPUT_PATH = (
     "/Users/kevinmbp/Desktop/2D_spec_dict/data/"
-    "GLP2_Z4_NCE15_200_combined.tsv"
+    "LLG_annote"
 )
 TOLERANCE = 0.01   # Da, nearest-match window for m/z lookup
 

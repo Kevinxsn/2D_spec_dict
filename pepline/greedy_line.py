@@ -652,29 +652,31 @@ if __name__ == "__main__":
 
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
-    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/VEA_merged.tsv"
-    PARENT_CHARGE = 4
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.LL37_Z6_NCE33_150_ions"
+    PARENT_CHARGE = 6
     DELTA = 0.005
     MIN_FFC = 3
     TOP_N = 1000
     MAX_RANKINGS = 20       # max rankings shown per line in the output table
     #PARENT_MASS = 1608.87  # set to None to omit the shift column VEA
-    PARENT_MASS = 1887.036239 # YLE
-    #PARENT_MASS = 941.96162 * 4
+    #PARENT_MASS = 1887.036239 # YLE
+    #PARENT_MASS = 4496.62218
+    PARENT_MASS = 941.96162 * 4
 
-    #ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
-    #ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
-    ffc_df = pd.read_csv(DATA_PATH, sep='\t')
+    ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    #ffc_df = pd.read_csv(DATA_PATH, sep='\t')
     
     
-    #ffc_df = double_with_swapped_columns(ffc_df, 'm/z A', 'm/z B')
+    ffc_df = double_with_swapped_columns(ffc_df, 'm/z A', 'm/z B')
     from merge_ffcs import merge_duplicate_ffcs
 
 
     
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
-    ffc_df = merge_duplicate_ffcs(ffc_df)
+    #ffc_df = merge_duplicate_ffcs(ffc_df)
 
     lines, master = greedy_lines(
         ffc_df,
@@ -683,7 +685,7 @@ if __name__ == "__main__":
         min_ffc_number=MIN_FFC,
         return_master=True,
     )
-
+    ffc_df.to_csv('bug.csv')
     print("=== MasterLines (parental + satellites) ===")
     print(lines_to_frame(master, parent_mass=PARENT_MASS, max_rankings=MAX_RANKINGS).to_string(index=False))
     print("\n=== GreedyLines (residual, internal-fragment lines) ===")
