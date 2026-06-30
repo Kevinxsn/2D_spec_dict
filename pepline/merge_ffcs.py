@@ -23,6 +23,7 @@ def merge_duplicate_ffcs(
     tolerance: float = 0.0,
     symmetric: bool = False,
     unranked_value: int = -1,
+    reset_ranking: bool = True,
 ) -> pd.DataFrame:
     """
     Collapse duplicate FFC rows, keeping the best-ranked row per unique pair.
@@ -46,6 +47,12 @@ def merge_duplicate_ffcs(
         canonicalising so the smaller value is always in col_a.
     unranked_value : int
         Sentinel value that marks an unranked row (default -1).
+    reset_ranking : bool
+        If True, reassign rankings to consecutive integers (1, 2, 3, …) based
+        on the relative order of rows after merging.  FFC(X, Y) and FFC(Y, X)
+        are treated as the same pair for this purpose and receive the same new
+        rank number.  Unranked rows (ranking == unranked_value) keep
+        ``unranked_value`` and remain at the end.
 
     Returns
     -------
@@ -90,7 +97,44 @@ def merge_duplicate_ffcs(
     # Restore a clean index, sorted by ranking (unranked last)
     ranked = result[result[ranking_col] != unranked_value].sort_values(ranking_col)
     unranked = result[result[ranking_col] == unranked_value]
-    return pd.concat([ranked, unranked], ignore_index=True)
+    result = pd.concat([ranked, unranked], ignore_index=True)
+
+    if reset_ranking:
+        # Build canonical (min, max) keys so FFC(X,Y) and FFC(Y,X) land in the
+        # same group regardless of the symmetric merge setting.
+        a_vals = result[col_a].to_numpy(dtype=float)
+        b_vals = result[col_b].to_numpy(dtype=float)
+        if tolerance > 0:
+            a_vals = np.round(a_vals / tolerance) * tolerance
+            b_vals = np.round(b_vals / tolerance) * tolerance
+
+        result["_sym_a"] = np.minimum(a_vals, b_vals)
+        result["_sym_b"] = np.maximum(a_vals, b_vals)
+
+        # Representative rank for each canonical group = min of non-unranked values.
+        def _group_min(x: pd.Series) -> float:
+            valid = x[x != unranked_value]
+            return float(valid.min()) if len(valid) > 0 else float("inf")
+
+        result["_group_rank"] = result.groupby(["_sym_a", "_sym_b"])[ranking_col].transform(_group_min)
+
+        # Assign sequential integers to ranked groups; preserve unranked_value for unranked groups.
+        unique_groups = (
+            result[["_sym_a", "_sym_b", "_group_rank"]]
+            .drop_duplicates(subset=["_sym_a", "_sym_b"])
+            .sort_values("_group_rank")
+        )
+        ranked_groups = unique_groups[unique_groups["_group_rank"] != float("inf")].copy()
+        unranked_groups = unique_groups[unique_groups["_group_rank"] == float("inf")].copy()
+        ranked_groups["_new_rank"] = range(1, len(ranked_groups) + 1)
+        unranked_groups["_new_rank"] = unranked_value
+
+        group_map = pd.concat([ranked_groups, unranked_groups])[["_sym_a", "_sym_b", "_new_rank"]]
+        result = result.merge(group_map, on=["_sym_a", "_sym_b"], how="left")
+        result[ranking_col] = result["_new_rank"].astype(result[ranking_col].dtype)
+        result = result.drop(columns=["_sym_a", "_sym_b", "_group_rank", "_new_rank"])
+
+    return result
 
 
 # ── Example / quick test ──────────────────────────────────────────────────────
@@ -116,3 +160,11 @@ if __name__ == "__main__":
     print("\n=== Merged (exact, symmetric) ===")
     out_sym = merge_duplicate_ffcs(sample, symmetric=True)
     print(out_sym.to_string(index=False))
+
+    print("\n=== Merged (non-symmetric, reset_ranking=True) ===")
+    out_reset = merge_duplicate_ffcs(sample, reset_ranking=True)
+    print(out_reset.to_string(index=False))
+
+    print("\n=== Merged (symmetric, reset_ranking=True) ===")
+    out_sym_reset = merge_duplicate_ffcs(sample, symmetric=True, reset_ranking=True)
+    print(out_sym_reset.to_string(index=False))

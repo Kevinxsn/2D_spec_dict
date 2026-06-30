@@ -400,23 +400,26 @@ if __name__ == "__main__":
     # ── Configuration ─────────────────────────────────────────────────────
     #DATA_PATH    = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/VEA_merged.tsv"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/short_peptide/VEA3+.txt"
-    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
+    #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/pepline/result/HAD_merged.tsv"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/CovarianceData.GLP2_Z4_NCE15_200_ions"
     #DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/deiso/merge/KWK5_merged.tsv"
+    DATA_PATH = "/Users/kevinmbp/Desktop/2D_spec_dict/data/long_peptide/Covariances_MoreFragments/Covariance_Data.LL37_Z6.NCE30_130_ions"
 
     #PEP_SEQ      = "VEADIAGHGQEVLIR"
-    PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
+    #PEP_SEQ      = "HADGSFSDEMNTILDNLAARDFINWLIQTKITD"
     #PEP_SEQ = "KWKLFKKIEKVGQNIRDGIIKAGPAVAVVGQATQIAK"
+    
+    PEP_SEQ = "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES"
     #CHARGE       = 3
     #CHARGE       = 4
-    CHARGE = 4
+    CHARGE = 6
     TOP_N        = 1000
     DELTA        = 0.02
     MIN_FFC      = 3
-    ISO_RANGE    = 1
+    ISO_RANGE    = 3
     THRESHOLD    = 0.05
     OUTPUT_EXCEL = "result/Book4.xlsx"
-    OUTPUT_SHEET = "greedy_annot_revised"
+    OUTPUT_SHEET = "greedy_annot_revised_LLG"
 
     # ── Build peptide & load data ─────────────────────────────────────────
     #pep = peptide.Pep(f"[{PEP_SEQ}+{CHARGE}H]{CHARGE}+", end_h20="NH3")
@@ -424,7 +427,12 @@ if __name__ == "__main__":
     print(f"Precursor mass: {pep.pep_mass}")
     PARENT_MASS = pep.pep_mass
 
-    ffc_df = pd.read_csv(DATA_PATH, sep="\t")
+    #ffc_df = pd.read_csv(DATA_PATH, sep="\t")
+    ffc_df = pd.read_csv(DATA_PATH, sep=r"\s+", skiprows=1, header=None, engine="python")
+
+    ffc_df.columns = ["m/z A", "m/z B", "Covariance", "Partial Cov.", "Score", "Ranking"]
+    
+    
     ffc_df = prepare_ffc_data(ffc_df, top_n=TOP_N)
     ffc_df = merge_duplicate_ffcs(ffc_df)
     print(f"FFC rows after filter: {len(ffc_df)}")
